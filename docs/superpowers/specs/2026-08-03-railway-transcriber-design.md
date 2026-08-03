@@ -34,7 +34,7 @@ The app must work well for two-to-three-hour recordings, including iPhone Voice 
 - Accuracy-focused `faster-whisper` transcription with voice-activity detection
 - Durable upload, preparation, chunk, and assembly state in PostgreSQL
 - Processing progress based on real stages and completed chunks
-- Original-audio playback through short-lived authorized URLs
+- Browser-compatible audio playback through short-lived authorized URLs while preserving the immutable original
 - Permanent history, clean transcript display, copy, TXT download, retry, and deletion
 - Railway deployment, migrations, health endpoints, and operational documentation
 
@@ -104,7 +104,7 @@ PostgreSQL stores authentication sessions, recording metadata, upload state, pro
 
 ### Railway Storage Bucket
 
-A private S3-compatible Railway Bucket stores original recordings and temporary normalized chunks. The browser uploads directly with presigned multipart requests. Playback uses a short-lived presigned GET URL generated only after authorization.
+A private S3-compatible Railway Bucket stores original recordings, browser-compatible AAC/M4A playback copies, and temporary normalized chunks. The browser uploads directly with presigned multipart requests. Playback uses a short-lived presigned GET URL generated only after authorization.
 
 Railway documents private buckets, presigned URLs, and multipart uploads as supported capabilities:
 
@@ -129,6 +129,7 @@ All identifiers exposed in object keys or APIs are random UUIDs. Original filena
 - Verified byte size, duration, and detected container/codec details
 - Selected language: `en`, `de`, or `tr`
 - Original bucket object key
+- Browser-compatible playback object key once preparation succeeds
 - Current status, stage, completed-chunk count, and total-chunk count
 - Safe error code and user-facing error category
 - Final clean transcript text
@@ -209,7 +210,7 @@ Acceptance requires:
 
 The browser's extension and MIME filters are usability hints, not the security boundary. This allows common iPhone `.m4a` Voice Memos while rejecting renamed or corrupt files cleanly.
 
-The worker normalizes accepted input to mono 16 kHz FLAC working audio. The original object is immutable and remains available for playback. Normalization never overwrites it.
+The worker normalizes accepted input to mono 16 kHz FLAC working audio. It also creates a 128 kbps AAC/M4A playback copy so every accepted source has a browser-compatible player asset. The original object is immutable and is never overwritten.
 
 ## Chunk planning
 
@@ -274,7 +275,7 @@ History items show filename, selected language, creation time, duration when kno
 A completed recording view provides:
 
 - Original filename, date, language, and duration
-- Browser audio playback using a short-lived authorized URL
+- Browser audio playback of the derived AAC/M4A copy using a short-lived authorized URL
 - Complete clean transcript
 - Copy text
 - Download `.txt`
@@ -314,7 +315,7 @@ Deletion is an idempotent workflow rather than a single database cascade:
 
 1. Mark the recording `deleting` so new playback, retry, and processing cannot begin.
 2. Revoke active multipart uploads.
-3. Delete the original object and any remaining working objects from the bucket.
+3. Delete the original object, playback copy, and any remaining working objects from the bucket.
 4. Delete upload parts, chunk results, and recording metadata from PostgreSQL.
 5. Retry object cleanup safely if Railway storage is temporarily unavailable.
 
@@ -413,7 +414,7 @@ The first version is complete when all of the following are true:
 6. A failed chunk can be retried without restarting the entire recording.
 7. The final transcript is clean readable text with no overlap duplication, visible timestamps, or AI rewriting.
 8. The displayed transcript can be copied and downloaded as byte-equivalent UTF-8 TXT.
-9. The original recording can be played from History through authenticated, short-lived access.
+9. The recording can be played from History through an authenticated, short-lived URL for its browser-compatible playback copy while the immutable original remains stored.
 10. Audio and transcript survive application redeployments and remain until manual deletion.
 11. Manual deletion removes the original audio, temporary objects, transcript, and associated database records through a verifiable retry-safe workflow.
 12. Automated tests and a Railway smoke test cover the complete happy path, recovery path, security boundary, and deletion path.

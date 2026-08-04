@@ -3,11 +3,21 @@ import { render, screen } from "@testing-library/react";
 import { App } from "./App.tsx";
 
 describe("App", () => {
-  it("introduces the private transcription workspace", () => {
+  it("opens on the private sign-in screen without a session", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          error: { code: "unauthenticated", message: "Authentication required.", requestId: "r1" },
+        }),
+        { status: 401, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "Long recordings in. Clean text out." })).toBeVisible();
-    expect(screen.getByText("Private audio workspace")).toBeVisible();
-    expect(screen.getByText("English · German · Turkish")).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Your recordings stay yours." })).toBeVisible();
+    expect(screen.getByText("EN")).toBeVisible();
+    expect(screen.getByText("DE")).toBeVisible();
+    expect(screen.getByText("TR")).toBeVisible();
   });
 });

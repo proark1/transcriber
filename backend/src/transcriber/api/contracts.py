@@ -64,3 +64,29 @@ class AuthorizedPartsResponse(ApiContract):
 class CompleteUploadResponse(ApiContract):
     recording_id: UUID
     status: RecordingStatus
+
+
+class RecordingResponse(ApiContract):
+    id: UUID
+    filename: str
+    content_type: str
+    language: Language
+    status: RecordingStatus
+    created_at: datetime
+    completed_at: datetime | None
+    duration_seconds: float | None
+    verified_bytes: int | None
+    completed_chunks: int
+    total_chunks: int
+    safe_error_code: str | None
+    has_playback: bool
+    has_transcript: bool
+
+
+class PlaybackResponse(ApiContract):
+    url: str
+    expires_at: datetime
+
+
+class DeleteRecordingResponse(ApiContract):
+    status: RecordingStatus

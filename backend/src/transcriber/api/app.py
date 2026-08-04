@@ -9,6 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from transcriber.api.routes_auth import router as auth_router
+from transcriber.api.routes_recordings import router as recordings_router
 from transcriber.api.routes_uploads import router as uploads_router
 from transcriber.api.security import (
     SecurityHeadersMiddleware,
@@ -43,6 +44,7 @@ def create_app(
     app.add_exception_handler(Exception, unhandled_exception_handler)
     app.include_router(auth_router)
     app.include_router(uploads_router)
+    app.include_router(recordings_router)
 
     @app.get("/healthz")
     def health() -> dict[str, str]:

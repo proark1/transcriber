@@ -55,6 +55,7 @@ def test_settings_accept_the_approved_contract() -> None:
         ("worker_lease_seconds", 60),
         ("worker_heartbeat_seconds", 60),
         ("worker_poll_seconds", 60),
+        ("playback_url_seconds", 60),
     ],
 )
 def test_settings_reject_contract_drift(field: str, value: object) -> None:

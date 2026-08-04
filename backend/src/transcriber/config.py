@@ -27,6 +27,7 @@ PRESIGNED_URL_SECONDS = 15 * 60
 WORKER_LEASE_SECONDS = 5 * 60
 WORKER_HEARTBEAT_SECONDS = 30
 WORKER_POLL_SECONDS = 5
+PLAYBACK_URL_SECONDS = 5 * 60
 
 
 class AppSettings(BaseSettings):
@@ -55,6 +56,7 @@ class AppSettings(BaseSettings):
     worker_lease_seconds: int = WORKER_LEASE_SECONDS
     worker_heartbeat_seconds: int = WORKER_HEARTBEAT_SECONDS
     worker_poll_seconds: int = WORKER_POLL_SECONDS
+    playback_url_seconds: int = PLAYBACK_URL_SECONDS
 
     database_url: str
 
@@ -161,6 +163,8 @@ class AppSettings(BaseSettings):
             raise ValueError(f"WORKER_HEARTBEAT_SECONDS must equal {WORKER_HEARTBEAT_SECONDS}")
         if self.worker_poll_seconds != WORKER_POLL_SECONDS:
             raise ValueError(f"WORKER_POLL_SECONDS must equal {WORKER_POLL_SECONDS}")
+        if self.playback_url_seconds != PLAYBACK_URL_SECONDS:
+            raise ValueError(f"PLAYBACK_URL_SECONDS must equal {PLAYBACK_URL_SECONDS}")
         if self.app_env == "production":
             if urlparse(self.app_public_origin).scheme != "https":
                 raise ValueError("APP_PUBLIC_ORIGIN must use HTTPS in production")

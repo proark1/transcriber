@@ -137,6 +137,7 @@ class PreparationService:
             recording.safe_error_code = None
 
     def _ensure_playback(self, recording_id: UUID, original: Path, playback: Path) -> None:
+        self._require_preparation_allowed(recording_id)
         object_key = f"recordings/{recording_id}/playback/audio.m4a"
         try:
             metadata = self._storage.head_object(object_key)
@@ -144,6 +145,7 @@ class PreparationService:
             raise MediaError("media_storage_failed") from error
         if metadata is None or metadata.size_bytes <= 0:
             self._media.create_playback(original, playback)
+            self._require_preparation_allowed(recording_id)
             try:
                 self._storage.upload_file(object_key, playback, "audio/mp4")
                 metadata = self._storage.head_object(object_key)
@@ -198,6 +200,7 @@ class PreparationService:
         chunk_output: Path,
         plan: ChunkPlan,
     ) -> None:
+        self._require_preparation_allowed(recording_id)
         object_key = _chunk_object_key(recording_id, plan.chunk_index)
         with self._sessions() as database:
             recorded_size = database.scalar(
@@ -217,6 +220,7 @@ class PreparationService:
         ):
             chunk_output.unlink(missing_ok=True)
             self._media.render_chunk(normalized, chunk_output, plan)
+            self._require_preparation_allowed(recording_id)
             try:
                 self._storage.upload_file(object_key, chunk_output, "audio/flac")
                 metadata = self._storage.head_object(object_key)
@@ -249,11 +253,19 @@ class PreparationService:
             recording.status = RecordingStatus.TRANSCRIBING
             recording.total_chunks = total_chunks
 
+    def _require_preparation_allowed(self, recording_id: UUID) -> None:
+        with self._sessions() as database:
+            recording = database.get(Recording, recording_id)
+            if recording is None or recording.status is RecordingStatus.DELETING:
+                raise MediaError("recording_state_conflict")
+
 
 def _recording(database: Session, recording_id: UUID) -> Recording:
     recording = database.get(Recording, recording_id)
     if recording is None:
         raise MediaError("recording_missing")
+    if recording.status is RecordingStatus.DELETING:
+        raise MediaError("recording_state_conflict")
     return recording
 
 

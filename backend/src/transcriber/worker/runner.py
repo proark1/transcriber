@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from transcriber.assembly import AssemblyChunk, AssemblyError, assemble_transcript
 from transcriber.config import AppSettings
+from transcriber.deletion import DeletionService
 from transcriber.media import MediaError
 from transcriber.models import Recording, TranscriptionChunk
 from transcriber.storage import ObjectStorage, StorageError
@@ -48,6 +49,7 @@ class WorkerRunner:
         transcriber: Transcriber,
         *,
         preparation: Preparer | None = None,
+        deletion: DeletionService | None = None,
         worker_id: str | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
@@ -56,6 +58,7 @@ class WorkerRunner:
         self._storage = storage
         self._transcriber = transcriber
         self._preparation = preparation or PreparationService(settings, session_factory, storage)
+        self._deletion = deletion or DeletionService(session_factory, storage)
         self._worker_id = worker_id or uuid4().hex
         self._clock = clock or (lambda: datetime.now(UTC))
 
@@ -182,6 +185,8 @@ class WorkerRunner:
         return WorkerRepository(database, lease_seconds=self._settings.worker_lease_seconds)
 
     def _cleanup_one(self) -> bool:
+        if self._deletion.reconcile_one(now=self._clock()):
+            return True
         with self._sessions.begin() as database:
             candidate = self._repository(database).cleanup_candidate()
         if candidate is None:

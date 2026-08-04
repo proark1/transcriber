@@ -201,6 +201,10 @@ class WorkerRepository:
                     TranscriptionChunk.id == claim.chunk_id,
                     TranscriptionChunk.status == ChunkStatus.RUNNING,
                     TranscriptionChunk.lease_owner == claim.worker_id,
+                    exists().where(
+                        Recording.id == TranscriptionChunk.recording_id,
+                        Recording.status == RecordingStatus.TRANSCRIBING,
+                    ),
                 )
                 .values(heartbeat_at=current_time, lease_expires_at=lease_expires)
             )
@@ -386,10 +390,12 @@ class WorkerRepository:
     def _owned_chunk(self, claim: WorkClaim) -> TranscriptionChunk:
         chunk = self._database.scalar(
             select(TranscriptionChunk)
+            .join(Recording)
             .where(
                 TranscriptionChunk.id == claim.chunk_id,
                 TranscriptionChunk.status == ChunkStatus.RUNNING,
                 TranscriptionChunk.lease_owner == claim.worker_id,
+                Recording.status == RecordingStatus.TRANSCRIBING,
             )
             .with_for_update()
         )

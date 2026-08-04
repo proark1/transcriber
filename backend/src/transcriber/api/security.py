@@ -106,6 +106,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             f"form-action 'self'; object-src 'none'; connect-src 'self' {self._bucket_origins}; "
             f"media-src 'self' {self._bucket_origins} blob:"
         )
+        if request.url.path.startswith("/api/"):
+            response.headers["Cache-Control"] = "no-store"
         if self._settings.app_env == "production":
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         return response

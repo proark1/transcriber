@@ -171,7 +171,12 @@ class BotoObjectStorage:
                 Key=object_key,
                 UploadId=provider_upload_id,
             )
-        except (BotoCoreError, ClientError) as error:
+        except ClientError as error:
+            code = str(error.response.get("Error", {}).get("Code", ""))
+            if code in {"404", "NoSuchUpload", "NotFound"}:
+                return
+            raise StorageError("Could not abort multipart upload.") from error
+        except BotoCoreError as error:
             raise StorageError("Could not abort multipart upload.") from error
 
     def head_object(self, object_key: str) -> ObjectMetadata | None:

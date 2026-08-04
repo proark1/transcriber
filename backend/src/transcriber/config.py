@@ -71,6 +71,8 @@ class AppSettings(BaseSettings):
     whisper_compute_type: Literal["int8"] = "int8"
     whisper_model_cache: Path = Path(".models")
     worker_scratch_dir: Path = Path(".scratch")
+    ffmpeg_path: str = "ffmpeg"
+    ffprobe_path: str = "ffprobe"
 
     @field_validator(
         "app_public_origin",
@@ -82,6 +84,8 @@ class AppSettings(BaseSettings):
         "bucket_access_key_id",
         "bucket_region",
         "whisper_model",
+        "ffmpeg_path",
+        "ffprobe_path",
     )
     @classmethod
     def require_nonempty_string(cls, value: str) -> str:

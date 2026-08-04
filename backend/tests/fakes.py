@@ -78,9 +78,10 @@ class FakeObjectStorage:
         return self.objects.get(object_key)
 
     def download_file(self, object_key: str, destination: Path) -> None:
-        if object_key not in self.objects:
+        metadata = self.objects.get(object_key)
+        if metadata is None:
             raise StorageError("missing")
-        destination.touch()
+        destination.write_bytes(b"x" * metadata.size_bytes)
 
     def upload_file(self, object_key: str, source: Path, content_type: str) -> None:
         self.objects[object_key] = ObjectMetadata(source.stat().st_size, content_type)

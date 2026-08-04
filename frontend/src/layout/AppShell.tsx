@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "../auth/AuthProvider.tsx";
 import type { RecordingResponse, RecordingStatus } from "../api/contracts.ts";
+import { HistorySidebar } from "../recordings/HistorySidebar.tsx";
 import { NewTranscription } from "../recordings/NewTranscription.tsx";
+import { RecordingPage } from "../recordings/RecordingPage.tsx";
 
 const ACTIVE_STATUSES = new Set<RecordingStatus>([
   "uploading",
@@ -20,10 +22,20 @@ export function AppShell() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [recordings, setRecordings] = useState<RecordingResponse[]>([]);
   const [loadError, setLoadError] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      setRecordings(await api.request<RecordingResponse[]>("/api/recordings"));
+      const nextRecordings = await api.request<RecordingResponse[]>("/api/recordings");
+      setRecordings(nextRecordings);
+      setSelectedId((current) => {
+        if (current && nextRecordings.some((recording) => recording.id === current)) {
+          return current;
+        }
+        return (
+          nextRecordings.find((recording) => ACTIVE_STATUSES.has(recording.status))?.id ?? null
+        );
+      });
       setLoadError(false);
     } catch {
       setLoadError(true);
@@ -36,6 +48,10 @@ export function AppShell() {
   const active = useMemo(
     () => recordings.find((recording) => ACTIVE_STATUSES.has(recording.status)) ?? null,
     [recordings],
+  );
+  const selected = useMemo(
+    () => recordings.find((recording) => recording.id === selectedId) ?? null,
+    [recordings, selectedId],
   );
   useEffect(() => {
     if (!active) return;
@@ -72,12 +88,36 @@ export function AppShell() {
             History could not refresh. Try again.
           </button>
         ) : null}
-        <NewTranscription
-          activeRecording={active}
-          onQueued={async () => {
-            await refresh();
-          }}
-        />
+        <div className="workspace-layout">
+          <HistorySidebar
+            recordings={recordings}
+            selectedId={selectedId}
+            activeExists={active !== null}
+            onSelect={setSelectedId}
+            onNew={() => setSelectedId(null)}
+          />
+          <div className="workspace-main">
+            {selected ? (
+              <RecordingPage
+                recording={selected}
+                anotherRecordingActive={active !== null && active.id !== selected.id}
+                onRefresh={refresh}
+                onRemoved={async () => {
+                  setSelectedId(null);
+                  await refresh();
+                }}
+              />
+            ) : (
+              <NewTranscription
+                activeRecording={active}
+                onQueued={async (recordingId) => {
+                  setSelectedId(recordingId);
+                  await refresh();
+                }}
+              />
+            )}
+          </div>
+        </div>
       </main>
     </div>
   );

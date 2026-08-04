@@ -341,6 +341,178 @@ button {
   margin: 0 auto;
 }
 
+.workspace-layout {
+  display: grid;
+  grid-template-columns: 310px minmax(0, 1fr);
+  min-height: calc(100vh - 72px);
+}
+
+.workspace-main {
+  min-width: 0;
+}
+
+.history-sidebar {
+  position: sticky;
+  top: 72px;
+  height: calc(100vh - 72px);
+  overflow-y: auto;
+  border-right: 1px solid var(--line);
+  background: rgb(13 23 36 / 72%);
+  padding: 28px 18px;
+}
+
+.history-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 4px 18px;
+}
+
+.history-topline p {
+  margin: 0;
+}
+
+.history-topline > span {
+  display: grid;
+  min-width: 28px;
+  height: 28px;
+  place-content: center;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.7rem;
+}
+
+.new-recording-button {
+  display: flex;
+  width: 100%;
+  min-height: 50px;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--oxide);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  padding: 11px 13px;
+  text-align: left;
+  font-weight: 700;
+}
+
+.new-recording-button span {
+  color: var(--oxide-light);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 1.25rem;
+}
+
+.new-recording-button:hover,
+.new-recording-button.is-selected {
+  background: rgb(220 139 89 / 10%);
+}
+
+.new-recording-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.history-list {
+  display: grid;
+  margin-top: 24px;
+  border-top: 1px solid var(--line);
+}
+
+.history-item {
+  display: grid;
+  position: relative;
+  width: 100%;
+  min-height: 112px;
+  gap: 6px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  padding: 17px 9px 15px;
+  text-align: left;
+}
+
+.history-item::before {
+  position: absolute;
+  width: 3px;
+  background: transparent;
+  content: "";
+  inset: 0 auto 0 -18px;
+}
+
+.history-item:hover {
+  background: rgb(255 255 255 / 2.5%);
+}
+
+.history-item.is-selected {
+  background: var(--panel-soft);
+}
+
+.history-item.is-selected::before {
+  background: var(--oxide);
+}
+
+.history-filename {
+  overflow: hidden;
+  align-self: end;
+  font-weight: 720;
+  overflow-wrap: anywhere;
+}
+
+.history-meta {
+  color: var(--faint);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.status-chip {
+  width: fit-content;
+  margin-top: 2px;
+  border: 1px solid var(--line-bright);
+  color: var(--muted);
+  padding: 3px 6px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.status-chip--completed {
+  border-color: rgb(112 185 154 / 55%);
+  color: var(--complete);
+}
+
+.status-chip--failed {
+  border-color: rgb(225 124 120 / 55%);
+  color: var(--danger);
+}
+
+.status-chip--transcribing,
+.status-chip--assembling,
+.status-chip--normalizing,
+.status-chip--chunking {
+  border-color: rgb(220 139 89 / 55%);
+  color: var(--oxide-light);
+}
+
+.history-empty {
+  margin: 0;
+  color: var(--faint);
+  padding: 24px 8px;
+  font-size: 0.84rem;
+  line-height: 1.6;
+}
+
+.history-mobile-label,
+.history-mobile-select {
+  display: none;
+}
+
 .empty-workspace {
   max-width: 760px;
   padding: 12vh clamp(24px, 7vw, 100px);
@@ -583,6 +755,247 @@ button {
   padding: clamp(52px, 8vw, 110px) clamp(24px, 8vw, 120px);
 }
 
+.recording-page {
+  padding: clamp(44px, 6vw, 86px) clamp(24px, 6vw, 88px) 100px;
+}
+
+.recording-heading {
+  display: flex;
+  gap: 30px;
+  align-items: start;
+  justify-content: space-between;
+  padding-bottom: 44px;
+  border-bottom: 1px solid var(--line);
+}
+
+.recording-heading .eyebrow,
+.recording-heading h1 {
+  margin: 0;
+}
+
+.recording-heading h1 {
+  max-width: 830px;
+  margin-top: 10px;
+  font-size: clamp(2.25rem, 5vw, 4.7rem);
+  font-weight: 720;
+  letter-spacing: -0.06em;
+  line-height: 1;
+  overflow-wrap: anywhere;
+}
+
+.recording-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 22px 38px;
+  margin: 32px 0 0;
+}
+
+.recording-facts div {
+  min-width: 100px;
+}
+
+.recording-facts dt {
+  color: var(--faint);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.recording-facts dd {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.delete-link {
+  min-height: 44px;
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: var(--danger);
+  cursor: pointer;
+  padding: 8px 0;
+  text-decoration: underline;
+  text-decoration-color: rgb(225 124 120 / 38%);
+  text-underline-offset: 5px;
+}
+
+.recording-page > .processing-card {
+  min-height: 0;
+  grid-template-columns: 32px minmax(0, 760px);
+  padding: 68px 0 12px;
+}
+
+.recording-page .processing-spine {
+  min-height: 410px;
+}
+
+.failed-card {
+  max-width: 760px;
+  margin-top: 56px;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--danger);
+  background: var(--panel);
+  padding: clamp(26px, 4vw, 44px);
+}
+
+.failed-card h2 {
+  margin: 8px 0 18px;
+  font-size: clamp(2rem, 4vw, 3.6rem);
+  letter-spacing: -0.055em;
+}
+
+.failed-card > p:not(.mono-label) {
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.failed-card .button {
+  margin-top: 20px;
+}
+
+.audio-card {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.6fr) minmax(300px, 1fr);
+  gap: 34px;
+  align-items: center;
+  margin-top: 46px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--tape-blue);
+  background: var(--panel);
+  padding: 28px 30px;
+}
+
+.audio-card p,
+.audio-card h2 {
+  margin: 0;
+}
+
+.audio-card h2 {
+  margin-top: 5px;
+  font-size: 1.35rem;
+  letter-spacing: -0.035em;
+}
+
+.audio-card audio {
+  width: 100%;
+  min-height: 54px;
+  filter: saturate(0.65) sepia(0.15);
+}
+
+.transcript-section {
+  margin-top: 36px;
+  border-top: 1px solid var(--line);
+  padding-top: 38px;
+}
+
+.transcript-toolbar {
+  display: flex;
+  gap: 24px;
+  align-items: end;
+  justify-content: space-between;
+}
+
+.transcript-toolbar p,
+.transcript-toolbar h2 {
+  margin: 0;
+}
+
+.transcript-toolbar h2 {
+  margin-top: 7px;
+  font-size: clamp(1.8rem, 3.4vw, 3rem);
+  letter-spacing: -0.05em;
+}
+
+.transcript-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 10px;
+}
+
+.transcript-actions a {
+  text-decoration: none;
+}
+
+.transcript-text {
+  max-width: 880px;
+  margin-top: 34px;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(90deg, rgb(116 151 219 / 6%), transparent 100px),
+    #eef1ed;
+  color: #1b2834;
+  padding: clamp(28px, 5vw, 64px);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.05rem, 1.6vw, 1.2rem);
+  line-height: 1.82;
+  white-space: pre-wrap;
+}
+
+.quiet-state {
+  color: var(--faint);
+  font-size: 0.86rem;
+}
+
+.dialog-backdrop {
+  display: grid;
+  position: fixed;
+  z-index: 80;
+  place-items: center;
+  background: rgb(2 7 13 / 82%);
+  padding: 20px;
+  inset: 0;
+  backdrop-filter: blur(8px);
+}
+
+.delete-dialog {
+  width: min(540px, 100%);
+  border: 1px solid var(--line-bright);
+  border-top: 3px solid var(--danger);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  padding: clamp(26px, 5vw, 44px);
+}
+
+.delete-dialog h2,
+.delete-dialog > p {
+  margin: 0;
+}
+
+.delete-dialog h2 {
+  margin: 8px 0 18px;
+  font-size: clamp(2rem, 5vw, 3rem);
+  letter-spacing: -0.055em;
+}
+
+.delete-dialog > p:not(.mono-label) {
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.delete-dialog strong {
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: end;
+  gap: 10px;
+  margin-top: 32px;
+}
+
+.button--danger {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: #1a0a0b;
+}
+
+.button--danger:hover {
+  background: #f29a95;
+}
+
 .processing-spine {
   display: grid;
   grid-template-rows: repeat(5, 1fr);
@@ -689,6 +1102,42 @@ button {
     display: none;
   }
 
+  .workspace-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .history-sidebar {
+    position: static;
+    height: auto;
+    overflow: visible;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 18px 14px 20px;
+  }
+
+  .history-topline {
+    margin-bottom: 12px;
+  }
+
+  .new-recording-button {
+    margin-bottom: 13px;
+  }
+
+  .history-list {
+    display: none;
+  }
+
+  .history-mobile-label {
+    display: block;
+    margin-bottom: 7px;
+    color: var(--faint);
+    font-size: 0.73rem;
+  }
+
+  .history-mobile-select {
+    display: block;
+  }
+
   .new-transcription {
     padding: 40px 14px 56px;
   }
@@ -735,6 +1184,56 @@ button {
 
   .processing-content {
     padding-left: 14px;
+  }
+
+  .recording-page {
+    padding: 40px 14px 64px;
+  }
+
+  .recording-heading {
+    align-items: stretch;
+    flex-direction: column;
+    padding-bottom: 32px;
+  }
+
+  .recording-facts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  .delete-link {
+    align-self: start;
+  }
+
+  .recording-page > .processing-card {
+    grid-template-columns: 22px minmax(0, 1fr);
+    padding-top: 48px;
+  }
+
+  .audio-card {
+    grid-template-columns: 1fr;
+    gap: 22px;
+    padding: 24px 20px;
+  }
+
+  .transcript-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .transcript-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .transcript-text {
+    margin-top: 26px;
+  }
+
+  .dialog-actions {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 }
 

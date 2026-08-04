@@ -74,3 +74,7 @@ export interface CompleteUploadResponse {
   recordingId: string;
   status: RecordingStatus;
 }
+
+export interface DeleteRecordingResponse {
+  status: "deleting";
+}

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "Dockerfile",
+    "watchPatterns": [
+      "/backend/**",
+      "/frontend/**",
+      "/scripts/configure_bucket_cors.py",
+      "/Dockerfile",
+      "/package.json",
+      "/pnpm-lock.yaml"
+    ]
+  },
+  "deploy": {
+    "preDeployCommand": ["alembic -c backend/alembic.ini upgrade head"],
+    "startCommand": "uvicorn transcriber.api.app:create_app --factory --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips=*",
+    "healthcheckPath": "/readyz",
+    "healthcheckTimeout": 300,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10,
+    "overlapSeconds": 20,
+    "drainingSeconds": 30
+  }
+}

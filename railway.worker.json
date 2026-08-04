@@ -1,0 +1,17 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "Dockerfile",
+    "watchPatterns": [
+      "/backend/**",
+      "/Dockerfile"
+    ]
+  },
+  "deploy": {
+    "startCommand": "python -m transcriber.worker",
+    "restartPolicyType": "ALWAYS",
+    "overlapSeconds": 0,
+    "drainingSeconds": 60
+  }
+}

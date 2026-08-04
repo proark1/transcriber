@@ -81,6 +81,7 @@ class AppSettings(BaseSettings):
     worker_scratch_dir: Path = Path(".scratch")
     ffmpeg_path: str = "ffmpeg"
     ffprobe_path: str = "ffprobe"
+    frontend_dist: Path = Path("frontend/dist")
 
     @field_validator(
         "app_public_origin",

@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
@@ -20,6 +24,7 @@ from transcriber.api.security import (
 from transcriber.auth import AuthenticationService
 from transcriber.config import AppSettings
 from transcriber.database import create_database_engine, create_session_factory
+from transcriber.logging_config import configure_logging
 from transcriber.storage import BotoObjectStorage, ObjectStorage
 
 
@@ -29,6 +34,7 @@ def create_app(
     storage: ObjectStorage | None = None,
 ) -> FastAPI:
     resolved_settings = settings or AppSettings()  # type: ignore[call-arg]
+    configure_logging(resolved_settings.app_log_level)
     if session_factory is None:
         engine = create_database_engine(resolved_settings)
         session_factory = create_session_factory(engine)
@@ -59,4 +65,25 @@ def create_app(
             raise HTTPException(status_code=503) from error
         return {"status": "ready"}
 
+    _mount_frontend(app, resolved_settings.frontend_dist)
+
     return app
+
+
+def _mount_frontend(app: FastAPI, frontend_dist: Path) -> None:
+    index = frontend_dist / "index.html"
+    if not index.is_file():
+        return
+    assets = frontend_dist / "assets"
+    if assets.is_dir():
+        app.mount("/assets", StaticFiles(directory=assets), name="frontend-assets")
+
+    @app.get("/", include_in_schema=False)
+    @app.get("/{frontend_path:path}", include_in_schema=False)
+    def frontend(request: Request, frontend_path: str = "") -> FileResponse:
+        del request
+        if frontend_path == "api" or frontend_path.startswith("api/"):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        if frontend_path in {"healthz", "readyz"}:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        return FileResponse(index, headers={"Cache-Control": "no-store"})

@@ -21,6 +21,7 @@ services:
     environment:
       MINIO_ROOT_USER: transcriber
       MINIO_ROOT_PASSWORD: transcriber_dev_secret
+      MINIO_API_CORS_ALLOW_ORIGIN: "http://localhost:5173,http://127.0.0.1:5173,http://127.0.0.1:43921"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 3s

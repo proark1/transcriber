@@ -1,0 +1,15 @@
+{
+  "name": "railway-transcriber",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.32.1",
+  "engines": {
+    "node": ">=22.12 <25"
+  },
+  "scripts": {
+    "build": "pnpm --dir frontend build",
+    "dev": "pnpm --dir frontend dev",
+    "test": "pnpm --dir frontend test --run",
+    "typecheck": "pnpm --dir frontend typecheck"
+  }
+}

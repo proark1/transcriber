@@ -10,6 +10,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+Add-Type -AssemblyName System.Net.Http
 
 if (-not $BaseUrl -or -not $Username -or -not $Pin) {
     throw "Set TRANSCRIBER_SMOKE_URL, TRANSCRIBER_SMOKE_USERNAME, and TRANSCRIBER_SMOKE_PIN."
@@ -22,6 +23,9 @@ if ($baseUri.Scheme -ne "https" -and $baseUri.Host -notin @("localhost", "127.0.
 $origin = "$($baseUri.Scheme)://$($baseUri.Authority)"
 $webSession = $null
 $csrfHeaders = $null
+$httpClient = New-Object System.Net.Http.HttpClient
+$upload = $null
+$queued = $null
 
 function Invoke-AppJson {
     param(
@@ -56,7 +60,11 @@ try {
         "X-CSRF-Token" = $login.csrfToken
     }
     $recordingResponse = Invoke-AppJson -Path "/api/recordings"
-    $recordings = if ($null -eq $recordingResponse) { @() } else { @($recordingResponse) }
+    if ($null -eq $recordingResponse) {
+        $recordings = @()
+    } else {
+        $recordings = @($recordingResponse)
+    }
     Write-Output "Authenticated Railway web service; history contains $($recordings.Count) recording(s)."
 
     if (-not $AudioPath) {
@@ -117,11 +125,22 @@ try {
                     if ($count -le 0) { throw "The smoke audio ended before its declared size." }
                     $read += $count
                 }
-                Invoke-WebRequest `
-                    -Uri $part.url `
-                    -Method Put `
-                    -ContentType $contentType `
-                    -Body $buffer | Out-Null
+                $partResponse = $null
+                $partContent = New-Object System.Net.Http.ByteArrayContent -ArgumentList (,$buffer)
+                try {
+                    $partContent.Headers.ContentType =
+                        [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse($contentType)
+                    $partResponse = $httpClient.PutAsync(
+                        [Uri]$part.url,
+                        $partContent
+                    ).GetAwaiter().GetResult()
+                    if (-not $partResponse.IsSuccessStatusCode) {
+                        throw "A restart-safe upload part was rejected by private storage."
+                    }
+                } finally {
+                    $partContent.Dispose()
+                    if ($null -ne $partResponse) { $partResponse.Dispose() }
+                }
             }
             $upload = Invoke-AppJson -Path "/api/uploads/$($upload.uploadSessionId)"
             Write-Output "Uploaded $(@($upload.confirmedParts).Count) of $($upload.partCount) restart-safe part(s)."
@@ -150,17 +169,41 @@ try {
         Start-Sleep -Seconds 10
     } while ($true)
 
-    $displayed = (Invoke-WebRequest `
+    $displayed = [string](Invoke-RestMethod `
         -Uri "$BaseUrl/api/recordings/$($queued.recordingId)/transcript" `
-        -WebSession $webSession).Content
-    $downloaded = (Invoke-WebRequest `
+        -WebSession $webSession)
+    $downloaded = [string](Invoke-RestMethod `
         -Uri "$BaseUrl/api/recordings/$($queued.recordingId)/transcript.txt" `
-        -WebSession $webSession).Content
+        -WebSession $webSession)
     if ($displayed -cne $downloaded) { throw "Displayed and downloaded transcript text differ." }
     $playback = Invoke-AppJson -Path "/api/recordings/$($queued.recordingId)/playback"
-    Invoke-WebRequest -Uri $playback.url -Headers @{ Range = "bytes=0-0" } | Out-Null
+    $playbackResponse = $null
+    $playbackRequest = New-Object System.Net.Http.HttpRequestMessage -ArgumentList (
+        [System.Net.Http.HttpMethod]::Get,
+        [Uri]$playback.url
+    )
+    $playbackRequest.Headers.TryAddWithoutValidation("Range", "bytes=0-0") | Out-Null
+    try {
+        $playbackResponse = $httpClient.SendAsync($playbackRequest).GetAwaiter().GetResult()
+        if (-not $playbackResponse.IsSuccessStatusCode) {
+            throw "The generated playback audio could not be read."
+        }
+    } finally {
+        $playbackRequest.Dispose()
+        if ($null -ne $playbackResponse) { $playbackResponse.Dispose() }
+    }
     Write-Output "Full Railway smoke transcription passed without printing private transcript or signed URL data."
 } finally {
+    if ($null -ne $upload -and $null -eq $queued -and $null -ne $csrfHeaders) {
+        try {
+            Invoke-AppJson `
+                -Path "/api/uploads/$($upload.uploadSessionId)/abort" `
+                -Method Post `
+                -Headers $csrfHeaders | Out-Null
+        } catch {
+            Write-Warning "The incomplete smoke upload could not be aborted automatically."
+        }
+    }
     if ($null -ne $csrfHeaders) {
         try {
             Invoke-AppJson -Path "/api/auth/logout" -Method Post -Headers $csrfHeaders | Out-Null
@@ -168,4 +211,5 @@ try {
             Write-Warning "The smoke session could not be closed automatically."
         }
     }
+    $httpClient.Dispose()
 }

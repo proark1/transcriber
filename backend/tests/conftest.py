@@ -7,11 +7,16 @@ from pathlib import Path
 
 import pytest
 from alembic.config import Config
+from argon2 import PasswordHasher
+from fastapi.testclient import TestClient
+from pydantic import SecretStr
 from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.engine import make_url
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from alembic import command
+from transcriber.api.app import create_app
+from transcriber.config import AppSettings
 
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL",
@@ -67,3 +72,37 @@ def database_session(migrated_engine: Engine) -> Iterator[Session]:
     with Session(migrated_engine, expire_on_commit=False) as session:
         yield session
         session.rollback()
+
+
+@pytest.fixture(scope="session")
+def app_settings() -> AppSettings:
+    return AppSettings(
+        app_env="test",
+        app_public_origin="https://testserver",
+        app_username="owner",
+        app_pin_hash=PasswordHasher(time_cost=1, memory_cost=8_192).hash("123456"),
+        app_session_secret=SecretStr("test-session-secret-that-is-at-least-32-bytes"),
+        app_secure_cookies=True,
+        database_url=TEST_DATABASE_URL,
+        bucket_endpoint="http://localhost:9000",
+        bucket_name="transcriber",
+        bucket_access_key_id="access",
+        bucket_secret_access_key=SecretStr("secret"),
+    )
+
+
+@pytest.fixture
+def app_session_factory(migrated_engine: Engine) -> sessionmaker[Session]:
+    return sessionmaker(bind=migrated_engine, expire_on_commit=False)
+
+
+@pytest.fixture
+def api_client(
+    app_settings: AppSettings,
+    app_session_factory: sessionmaker[Session],
+    database_session: Session,
+) -> Iterator[TestClient]:
+    del database_session
+    app = create_app(app_settings, app_session_factory)
+    with TestClient(app, base_url="https://testserver") as client:
+        yield client

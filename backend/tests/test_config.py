@@ -40,6 +40,15 @@ def test_settings_accept_the_approved_contract() -> None:
     assert settings.whisper_compute_type == "int8"
 
 
+@pytest.mark.parametrize("scheme", ["postgres://", "postgresql://"])
+def test_settings_select_psycopg_for_railway_database_urls(scheme: str) -> None:
+    settings = valid_settings(database_url=f"{scheme}owner:secret@postgres:5432/transcriber")
+
+    assert settings.database_url == (
+        "postgresql+psycopg://owner:secret@postgres:5432/transcriber"
+    )
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     [

@@ -30,6 +30,15 @@ WORKER_POLL_SECONDS = 5
 PLAYBACK_URL_SECONDS = 5 * 60
 
 
+def normalize_database_url(value: str) -> str:
+    """Select the installed psycopg v3 driver for Railway-style PostgreSQL URLs."""
+    if value.startswith("postgres://"):
+        return "postgresql+psycopg://" + value.removeprefix("postgres://")
+    if value.startswith("postgresql://"):
+        return "postgresql+psycopg://" + value.removeprefix("postgresql://")
+    return value
+
+
 class AppSettings(BaseSettings):
     """Fail-closed settings loaded from Railway variables or a local `.env`."""
 
@@ -110,6 +119,11 @@ class AppSettings(BaseSettings):
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
             raise ValueError("must be an absolute HTTP(S) URL")
         return value.rstrip("/")
+
+    @field_validator("database_url")
+    @classmethod
+    def select_postgresql_driver(cls, value: str) -> str:
+        return normalize_database_url(value)
 
     @field_validator("bucket_secret_access_key")
     @classmethod

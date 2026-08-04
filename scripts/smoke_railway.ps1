@@ -55,7 +55,8 @@ try {
         Origin = $origin
         "X-CSRF-Token" = $login.csrfToken
     }
-    $recordings = @(Invoke-AppJson -Path "/api/recordings")
+    $recordingResponse = Invoke-AppJson -Path "/api/recordings"
+    $recordings = if ($null -eq $recordingResponse) { @() } else { @($recordingResponse) }
     Write-Output "Authenticated Railway web service; history contains $($recordings.Count) recording(s)."
 
     if (-not $AudioPath) {

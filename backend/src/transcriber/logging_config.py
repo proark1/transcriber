@@ -9,7 +9,7 @@ from pythonjsonlogger.json import JsonFormatter
 
 
 def configure_logging(level: str) -> None:
-    """Write structured application logs to stderr without private payload fields."""
+    """Write structured application logs without private payload fields."""
     logging.config.dictConfig(
         {
             "version": 1,
@@ -21,12 +21,12 @@ def configure_logging(level: str) -> None:
                 }
             },
             "handlers": {
-                "stderr": {
+                "stdout": {
                     "class": "logging.StreamHandler",
                     "formatter": "json",
-                    "stream": sys.stderr,
+                    "stream": sys.stdout,
                 }
             },
-            "root": {"handlers": ["stderr"], "level": level},
+            "root": {"handlers": ["stdout"], "level": level},
         }
     )

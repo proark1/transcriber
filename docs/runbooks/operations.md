@@ -35,7 +35,7 @@ Use Railway service metrics and logs for:
 - PostgreSQL storage/connections and Bucket storage growth;
 - recordings remaining in `deleting` because cleanup has not reconciled.
 
-Application logs are structured JSON on stderr. Search by request ID and safe error code. Never add
+Application logs are structured JSON on standard output. Search by request ID and safe error code. Never add
 audio bytes, transcript text, PINs, session/CSRF values, signed URLs, credentials, or absolute media
 paths to logs.
 

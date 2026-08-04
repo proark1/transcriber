@@ -180,6 +180,7 @@ class UploadSession(Base):
     __tablename__ = "upload_sessions"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    client_request_id: Mapped[UUID] = mapped_column(unique=True)
     recording_id: Mapped[UUID] = mapped_column(
         ForeignKey("recordings.id", ondelete="CASCADE"), index=True
     )

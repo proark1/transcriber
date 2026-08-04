@@ -22,6 +22,8 @@ SESSION_LIFETIME_SECONDS = 7 * 24 * 60 * 60
 LOGIN_ATTEMPT_WINDOW_SECONDS = 15 * 60
 LOGIN_LOCKOUT_SECONDS = 15 * 60
 LOGIN_MAX_FAILURES = 5
+UPLOAD_SESSION_SECONDS = 24 * 60 * 60
+PRESIGNED_URL_SECONDS = 15 * 60
 
 
 class AppSettings(BaseSettings):
@@ -45,6 +47,8 @@ class AppSettings(BaseSettings):
     login_attempt_window_seconds: int = LOGIN_ATTEMPT_WINDOW_SECONDS
     login_lockout_seconds: int = LOGIN_LOCKOUT_SECONDS
     login_max_failures: int = LOGIN_MAX_FAILURES
+    upload_session_seconds: int = UPLOAD_SESSION_SECONDS
+    presigned_url_seconds: int = PRESIGNED_URL_SECONDS
 
     database_url: str
 
@@ -94,6 +98,13 @@ class AppSettings(BaseSettings):
             raise ValueError("must be an absolute HTTP(S) URL")
         return value.rstrip("/")
 
+    @field_validator("bucket_secret_access_key")
+    @classmethod
+    def require_bucket_secret(cls, value: SecretStr) -> SecretStr:
+        if not value.get_secret_value():
+            raise ValueError("BUCKET_SECRET_ACCESS_KEY must not be empty")
+        return value
+
     @model_validator(mode="after")
     def enforce_product_and_security_contract(self) -> Self:
         try:
@@ -130,9 +141,15 @@ class AppSettings(BaseSettings):
             raise ValueError(f"LOGIN_LOCKOUT_SECONDS must equal {LOGIN_LOCKOUT_SECONDS}")
         if self.login_max_failures != LOGIN_MAX_FAILURES:
             raise ValueError(f"LOGIN_MAX_FAILURES must equal {LOGIN_MAX_FAILURES}")
+        if self.upload_session_seconds != UPLOAD_SESSION_SECONDS:
+            raise ValueError(f"UPLOAD_SESSION_SECONDS must equal {UPLOAD_SESSION_SECONDS}")
+        if self.presigned_url_seconds != PRESIGNED_URL_SECONDS:
+            raise ValueError(f"PRESIGNED_URL_SECONDS must equal {PRESIGNED_URL_SECONDS}")
         if self.app_env == "production":
             if urlparse(self.app_public_origin).scheme != "https":
                 raise ValueError("APP_PUBLIC_ORIGIN must use HTTPS in production")
+            if urlparse(self.bucket_endpoint).scheme != "https":
+                raise ValueError("BUCKET_ENDPOINT must use HTTPS in production")
             if not self.app_secure_cookies:
                 raise ValueError("APP_SECURE_COOKIES must be enabled in production")
         return self

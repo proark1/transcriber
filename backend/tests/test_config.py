@@ -50,6 +50,8 @@ def test_settings_accept_the_approved_contract() -> None:
         ("chunk_overlap_seconds", 0),
         ("session_lifetime_seconds", 60),
         ("login_max_failures", 10),
+        ("upload_session_seconds", 60),
+        ("presigned_url_seconds", 60),
     ],
 )
 def test_settings_reject_contract_drift(field: str, value: object) -> None:
@@ -72,3 +74,8 @@ def test_production_requires_https_and_secure_cookies() -> None:
 def test_settings_reject_an_invalid_pin_hash() -> None:
     with pytest.raises(ValidationError):
         valid_settings(app_pin_hash="not-a-hash")
+
+
+def test_settings_reject_an_empty_bucket_secret() -> None:
+    with pytest.raises(ValidationError):
+        valid_settings(bucket_secret_access_key="")

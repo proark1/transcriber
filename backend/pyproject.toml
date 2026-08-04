@@ -33,7 +33,7 @@ dev = [
 packages = ["src/transcriber"]
 
 [tool.pytest.ini_options]
-addopts = "-ra --strict-markers"
+addopts = "-ra --strict-markers --basetemp=.pytest-tmp"
 pythonpath = ["src"]
 testpaths = ["tests"]
 

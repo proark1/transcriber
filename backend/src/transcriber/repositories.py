@@ -28,20 +28,24 @@ class RecordingRepository:
     def create_uploading_recording(
         self,
         *,
+        recording_id: UUID | None = None,
         display_filename: str,
         reported_content_type: str,
         expected_bytes: int,
         language: Language,
         original_object_key: str,
     ) -> Recording:
-        recording = Recording(
-            display_filename=display_filename,
-            reported_content_type=reported_content_type,
-            expected_bytes=expected_bytes,
-            language=language,
-            original_object_key=original_object_key,
-            status=RecordingStatus.UPLOADING,
-        )
+        recording_values: dict[str, object] = {
+            "display_filename": display_filename,
+            "reported_content_type": reported_content_type,
+            "expected_bytes": expected_bytes,
+            "language": language,
+            "original_object_key": original_object_key,
+            "status": RecordingStatus.UPLOADING,
+        }
+        if recording_id is not None:
+            recording_values["id"] = recording_id
+        recording = Recording(**recording_values)
         self._session.add(recording)
         try:
             self._session.flush()

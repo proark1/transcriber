@@ -46,6 +46,9 @@ async def http_exception_handler(request: Request, error: HTTPException) -> JSON
         status.HTTP_403_FORBIDDEN: "The request was not permitted.",
         status.HTTP_404_NOT_FOUND: "The requested item was not found.",
         status.HTTP_409_CONFLICT: "The request conflicts with the current state.",
+        status.HTTP_410_GONE: "This upload has expired.",
+        status.HTTP_413_CONTENT_TOO_LARGE: "The selected file is too large.",
+        status.HTTP_415_UNSUPPORTED_MEDIA_TYPE: "This file type is not supported.",
         status.HTTP_429_TOO_MANY_REQUESTS: "Too many attempts. Please try again later.",
     }
     return error_response(
@@ -88,7 +91,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     def __init__(self, app: object, *, settings: AppSettings) -> None:
         super().__init__(app)  # type: ignore[arg-type]
         self._settings = settings
-        self._bucket_origin = _origin(settings.bucket_endpoint)
+        self._bucket_origins = " ".join(sorted(_storage_origins(settings)))
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         request.state.request_id = secrets.token_hex(16)
@@ -100,8 +103,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Permissions-Policy"] = "camera=(), geolocation=(), microphone=()"
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; "
-            f"form-action 'self'; object-src 'none'; connect-src 'self' {self._bucket_origin}; "
-            f"media-src 'self' {self._bucket_origin} blob:"
+            f"form-action 'self'; object-src 'none'; connect-src 'self' {self._bucket_origins}; "
+            f"media-src 'self' {self._bucket_origins} blob:"
         )
         if self._settings.app_env == "production":
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
@@ -132,6 +135,15 @@ def _origin(url: str) -> str:
     return f"{parsed.scheme}://{parsed.hostname}{port}"
 
 
+def _storage_origins(settings: AppSettings) -> set[str]:
+    origins = {_origin(settings.bucket_endpoint)}
+    parsed = urlparse(settings.bucket_endpoint)
+    if settings.bucket_url_style == "virtual" and parsed.hostname is not None:
+        port = f":{parsed.port}" if parsed.port else ""
+        origins.add(f"{parsed.scheme}://{settings.bucket_name}.{parsed.hostname}{port}")
+    return origins
+
+
 def _error_code(status_code: int) -> str:
     return {
         400: "bad_request",
@@ -139,5 +151,8 @@ def _error_code(status_code: int) -> str:
         403: "forbidden",
         404: "not_found",
         409: "conflict",
+        410: "expired",
+        413: "file_too_large",
+        415: "unsupported_media",
         429: "rate_limited",
     }.get(status_code, "request_failed")

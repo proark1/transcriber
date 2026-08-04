@@ -15,6 +15,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 
 from alembic import command
+from tests.fakes import FakeObjectStorage
 from transcriber.api.app import create_app
 from transcriber.config import AppSettings
 
@@ -97,12 +98,18 @@ def app_session_factory(migrated_engine: Engine) -> sessionmaker[Session]:
 
 
 @pytest.fixture
+def fake_storage() -> FakeObjectStorage:
+    return FakeObjectStorage()
+
+
+@pytest.fixture
 def api_client(
     app_settings: AppSettings,
     app_session_factory: sessionmaker[Session],
     database_session: Session,
+    fake_storage: FakeObjectStorage,
 ) -> Iterator[TestClient]:
     del database_session
-    app = create_app(app_settings, app_session_factory)
+    app = create_app(app_settings, app_session_factory, fake_storage)
     with TestClient(app, base_url="https://testserver") as client:
         yield client

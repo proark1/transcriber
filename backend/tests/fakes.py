@@ -17,6 +17,7 @@ class FakeObjectStorage:
         self.fail_list = False
         self.fail_complete = False
         self.fail_abort = False
+        self.fail_delete = False
 
     @property
     def last_upload_id(self) -> str:
@@ -87,6 +88,8 @@ class FakeObjectStorage:
         self.objects[object_key] = ObjectMetadata(source.stat().st_size, content_type)
 
     def delete_objects(self, object_keys: list[str]) -> set[str]:
+        if self.fail_delete:
+            raise StorageError("delete failed")
         for key in object_keys:
             self.objects.pop(key, None)
         return set()

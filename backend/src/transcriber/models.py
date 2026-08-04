@@ -150,6 +150,9 @@ class Recording(Base):
     )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     deletion_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    working_chunks_deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), index=True
+    )
 
     upload_sessions: Mapped[list[UploadSession]] = relationship(
         back_populates="recording", cascade="all, delete-orphan"

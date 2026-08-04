@@ -24,6 +24,9 @@ LOGIN_LOCKOUT_SECONDS = 15 * 60
 LOGIN_MAX_FAILURES = 5
 UPLOAD_SESSION_SECONDS = 24 * 60 * 60
 PRESIGNED_URL_SECONDS = 15 * 60
+WORKER_LEASE_SECONDS = 5 * 60
+WORKER_HEARTBEAT_SECONDS = 30
+WORKER_POLL_SECONDS = 5
 
 
 class AppSettings(BaseSettings):
@@ -49,6 +52,9 @@ class AppSettings(BaseSettings):
     login_max_failures: int = LOGIN_MAX_FAILURES
     upload_session_seconds: int = UPLOAD_SESSION_SECONDS
     presigned_url_seconds: int = PRESIGNED_URL_SECONDS
+    worker_lease_seconds: int = WORKER_LEASE_SECONDS
+    worker_heartbeat_seconds: int = WORKER_HEARTBEAT_SECONDS
+    worker_poll_seconds: int = WORKER_POLL_SECONDS
 
     database_url: str
 
@@ -149,6 +155,12 @@ class AppSettings(BaseSettings):
             raise ValueError(f"UPLOAD_SESSION_SECONDS must equal {UPLOAD_SESSION_SECONDS}")
         if self.presigned_url_seconds != PRESIGNED_URL_SECONDS:
             raise ValueError(f"PRESIGNED_URL_SECONDS must equal {PRESIGNED_URL_SECONDS}")
+        if self.worker_lease_seconds != WORKER_LEASE_SECONDS:
+            raise ValueError(f"WORKER_LEASE_SECONDS must equal {WORKER_LEASE_SECONDS}")
+        if self.worker_heartbeat_seconds != WORKER_HEARTBEAT_SECONDS:
+            raise ValueError(f"WORKER_HEARTBEAT_SECONDS must equal {WORKER_HEARTBEAT_SECONDS}")
+        if self.worker_poll_seconds != WORKER_POLL_SECONDS:
+            raise ValueError(f"WORKER_POLL_SECONDS must equal {WORKER_POLL_SECONDS}")
         if self.app_env == "production":
             if urlparse(self.app_public_origin).scheme != "https":
                 raise ValueError("APP_PUBLIC_ORIGIN must use HTTPS in production")

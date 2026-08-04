@@ -30,6 +30,10 @@ Both services build the same immutable `Dockerfile`. The web config runs migrati
 serves the compiled interface, and checks `/readyz`. The worker config runs one always-restarted
 worker and allows 60 seconds for its SIGTERM checkpoint-safe shutdown.
 
+The root `railway.json` and image command are a safe fallback for CLI uploads before those custom
+paths are set: Railway's service name selects the web or worker process, and the web process applies
+migrations before accepting traffic.
+
 ## 2. Generate owner credentials locally
 
 Choose a username and a 6-12 digit PIN. Store only the Argon2id hash in Railway:

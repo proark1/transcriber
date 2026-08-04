@@ -69,3 +69,8 @@ export interface PlaybackResponse {
   url: string;
   expiresAt: string;
 }
+
+export interface CompleteUploadResponse {
+  recordingId: string;
+  status: RecordingStatus;
+}

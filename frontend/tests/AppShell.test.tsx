@@ -18,18 +18,29 @@ describe("AppShell", () => {
           { status: 200, headers: { "Content-Type": "application/json" } },
         ),
       )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      )
       .mockResolvedValueOnce(new Response(null, { status: 204 }));
     const user = userEvent.setup();
     render(<App />);
 
     expect(await screen.findByText("owner")).toBeVisible();
     expect(
-      screen.getByRole("heading", { name: "Choose a recording or start a new transcription." }),
+      await screen.findByRole("heading", { name: "Turn a recording into clean text." }),
     ).toBeVisible();
+    expect(screen.getByRole("combobox", { name: "Spoken language" })).toHaveValue("en");
+    expect(screen.getByRole("option", { name: "English" })).toBeVisible();
+    expect(screen.getByRole("option", { name: "German" })).toBeVisible();
+    expect(screen.getByRole("option", { name: "Turkish" })).toBeVisible();
+    expect(screen.getByText(/M4A.*MP3.*WAV.*AAC.*FLAC.*OGG.*OPUS.*MP4/)).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Sign out" }));
 
     expect(await screen.findByRole("heading", { name: "Your recordings stay yours." })).toBeVisible();
-    const logoutInit = fetchMock.mock.calls[1]?.[1];
+    const logoutInit = fetchMock.mock.calls[2]?.[1];
     expect(new Headers(logoutInit?.headers).get("X-CSRF-Token")).toBe("csrf-token");
   });
 });

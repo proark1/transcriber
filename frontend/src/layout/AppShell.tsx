@@ -1,10 +1,47 @@
-import { type ReactNode, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "../auth/AuthProvider.tsx";
+import type { RecordingResponse, RecordingStatus } from "../api/contracts.ts";
+import { NewTranscription } from "../recordings/NewTranscription.tsx";
 
-export function AppShell({ children }: { children?: ReactNode }) {
-  const { username, logout } = useAuth();
+const ACTIVE_STATUSES = new Set<RecordingStatus>([
+  "uploading",
+  "queued",
+  "validating",
+  "normalizing",
+  "chunking",
+  "transcribing",
+  "assembling",
+  "deleting",
+]);
+
+export function AppShell() {
+  const { username, logout, api } = useAuth();
   const [loggingOut, setLoggingOut] = useState(false);
+  const [recordings, setRecordings] = useState<RecordingResponse[]>([]);
+  const [loadError, setLoadError] = useState(false);
+
+  const refresh = useCallback(async () => {
+    try {
+      setRecordings(await api.request<RecordingResponse[]>("/api/recordings"));
+      setLoadError(false);
+    } catch {
+      setLoadError(true);
+    }
+  }, [api]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+  const active = useMemo(
+    () => recordings.find((recording) => ACTIVE_STATUSES.has(recording.status)) ?? null,
+    [recordings],
+  );
+  useEffect(() => {
+    if (!active) return;
+    const timer = window.setInterval(() => void refresh(), 4_000);
+    return () => window.clearInterval(timer);
+  }, [active, refresh]);
 
   async function signOut() {
     setLoggingOut(true);
@@ -25,17 +62,22 @@ export function AppShell({ children }: { children?: ReactNode }) {
             <i aria-hidden="true" /> {username}
           </span>
           <button className="text-button" onClick={signOut} disabled={loggingOut}>
-            {loggingOut ? "Signing out…" : "Sign out"}
+            {loggingOut ? "Signing out..." : "Sign out"}
           </button>
         </div>
       </header>
       <main className="workspace-shell">
-        {children ?? (
-          <section className="empty-workspace">
-            <p className="eyebrow">Workspace ready</p>
-            <h1>Choose a recording or start a new transcription.</h1>
-          </section>
-        )}
+        {loadError ? (
+          <button className="load-warning" onClick={() => void refresh()}>
+            History could not refresh. Try again.
+          </button>
+        ) : null}
+        <NewTranscription
+          activeRecording={active}
+          onQueued={async () => {
+            await refresh();
+          }}
+        />
       </main>
     </div>
   );

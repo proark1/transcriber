@@ -353,6 +353,316 @@ button {
   line-height: 0.98;
 }
 
+.load-warning {
+  width: 100%;
+  min-height: 44px;
+  border: 0;
+  border-bottom: 1px solid rgb(225 124 120 / 45%);
+  background: rgb(225 124 120 / 10%);
+  color: #f1b0ad;
+  cursor: pointer;
+  padding: 11px 24px;
+  text-align: center;
+}
+
+.new-transcription {
+  padding: clamp(44px, 7vw, 96px) clamp(24px, 7vw, 100px) 80px;
+}
+
+.section-heading {
+  display: flex;
+  gap: 40px;
+  align-items: end;
+  justify-content: space-between;
+  margin-bottom: clamp(38px, 6vw, 70px);
+}
+
+.section-heading .eyebrow,
+.section-heading h1,
+.section-heading > p {
+  margin: 0;
+}
+
+.section-heading h1 {
+  max-width: 780px;
+  margin-top: 10px;
+  font-size: clamp(2.5rem, 5.7vw, 5.6rem);
+  font-weight: 720;
+  letter-spacing: -0.065em;
+  line-height: 0.96;
+}
+
+.section-heading > p {
+  flex: 0 0 auto;
+  color: var(--faint);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.upload-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.55fr);
+  border: 1px solid var(--line);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.drop-zone {
+  display: grid;
+  min-height: 430px;
+  place-content: center;
+  justify-items: center;
+  border-right: 1px solid var(--line);
+  background:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px),
+    var(--panel-soft);
+  background-size: 36px 36px;
+  padding: 44px;
+  text-align: center;
+  transition: box-shadow 160ms ease, background-color 160ms ease;
+}
+
+.drop-zone.is-dragging {
+  box-shadow: inset 0 0 0 3px var(--oxide);
+  background-color: var(--panel-high);
+}
+
+.drop-mark {
+  display: grid;
+  width: 64px;
+  height: 64px;
+  place-content: center;
+  margin-bottom: 24px;
+  border: 1px solid var(--oxide);
+  background: var(--canvas);
+  color: var(--oxide-light);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 2.1rem;
+}
+
+.drop-zone h2 {
+  max-width: 600px;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: clamp(1.65rem, 3vw, 2.5rem);
+  letter-spacing: -0.045em;
+}
+
+.drop-zone > p {
+  margin: 12px 0 25px;
+  color: var(--muted);
+}
+
+.drop-zone .format-line {
+  margin: 24px 0 0;
+  color: var(--faint);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.035em;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.button--secondary {
+  border-color: var(--line-bright);
+  background: var(--canvas);
+  color: var(--ink);
+}
+
+.button--secondary:hover {
+  border-color: var(--tape-blue);
+  background: var(--panel-high);
+}
+
+.upload-options {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: clamp(28px, 4vw, 44px);
+}
+
+.upload-options label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.upload-options select {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 20px) 21px,
+    calc(100% - 15px) 21px;
+  background-repeat: no-repeat;
+  background-size: 5px 5px;
+  padding-right: 42px;
+}
+
+.upload-options > div > p {
+  color: var(--faint);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.resume-banner {
+  display: flex;
+  gap: 28px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 22px;
+  border: 1px solid var(--tape-blue);
+  background: rgb(116 151 219 / 8%);
+  padding: 20px 22px;
+}
+
+.resume-banner p,
+.resume-banner h2 {
+  margin: 0;
+}
+
+.resume-banner h2 {
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+  font-size: 1.15rem;
+}
+
+.resume-banner > div > p:last-child {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.upload-progress > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.upload-progress strong {
+  color: var(--oxide-light);
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.progress-track,
+.chunk-progress {
+  height: 7px;
+  overflow: hidden;
+  background: var(--line);
+}
+
+.progress-track > span,
+.chunk-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--oxide);
+  transition: width 200ms ease;
+}
+
+.upload-progress .text-button {
+  margin-top: 12px;
+}
+
+.processing-card {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 760px);
+  min-height: calc(100vh - 72px);
+  padding: clamp(52px, 8vw, 110px) clamp(24px, 8vw, 120px);
+}
+
+.processing-spine {
+  display: grid;
+  grid-template-rows: repeat(5, 1fr);
+  width: 13px;
+  min-height: 460px;
+  border: 1px solid var(--line-bright);
+  background: var(--panel-soft);
+}
+
+.processing-spine span {
+  border-bottom: 1px solid var(--line);
+}
+
+.processing-spine span:last-child {
+  border-bottom: 0;
+}
+
+.processing-spine .is-complete {
+  background: var(--complete);
+}
+
+.processing-spine .is-active {
+  background: var(--oxide);
+}
+
+.processing-content {
+  padding-left: clamp(24px, 5vw, 72px);
+}
+
+.processing-content h2 {
+  max-width: 720px;
+  margin: 12px 0 28px;
+  font-size: clamp(2.5rem, 6vw, 5.4rem);
+  letter-spacing: -0.06em;
+  line-height: 0.97;
+}
+
+.processing-note {
+  max-width: 590px;
+  margin: 26px 0 40px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.chunk-progress {
+  max-width: 580px;
+}
+
+.stage-list {
+  display: grid;
+  max-width: 600px;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+  list-style: none;
+}
+
+.stage-list li {
+  display: flex;
+  gap: 18px;
+  border-bottom: 1px solid var(--line);
+  color: var(--faint);
+  padding: 14px 0;
+}
+
+.stage-list li span {
+  color: var(--line-bright);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.76rem;
+}
+
+.stage-list .is-reached {
+  color: var(--ink);
+}
+
+.stage-list .is-reached span {
+  color: var(--oxide-light);
+}
+
 @media (max-width: 800px) {
   .login-page {
     grid-template-columns: 1fr;
@@ -377,6 +687,54 @@ button {
 
   .account-menu > span {
     display: none;
+  }
+
+  .new-transcription {
+    padding: 40px 14px 56px;
+  }
+
+  .section-heading {
+    display: block;
+  }
+
+  .section-heading > p {
+    margin-top: 20px;
+  }
+
+  .upload-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .drop-zone {
+    min-height: 360px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 32px 20px;
+  }
+
+  .upload-options {
+    min-height: 260px;
+    padding: 26px 20px;
+  }
+
+  .resume-banner {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .processing-card {
+    grid-template-columns: 24px minmax(0, 1fr);
+    min-height: calc(100vh - 64px);
+    padding: 48px 20px;
+  }
+
+  .processing-spine {
+    width: 9px;
+    min-height: 390px;
+  }
+
+  .processing-content {
+    padding-left: 14px;
   }
 }
 

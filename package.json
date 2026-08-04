@@ -10,6 +10,11 @@
     "build": "pnpm --dir frontend build",
     "dev": "pnpm --dir frontend dev",
     "test": "pnpm --dir frontend test --run",
+    "test:e2e": "playwright test",
     "typecheck": "pnpm --dir frontend typecheck"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.10.2",
+    "@playwright/test": "1.55.0"
   }
 }

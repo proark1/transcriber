@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: transcriber_test
+          POSTGRES_USER: transcriber
+          POSTGRES_PASSWORD: transcriber_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U transcriber -d transcriber_test"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://transcriber:transcriber_test@localhost:5432/transcriber_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --project backend --locked
+      - run: uv run --project backend ruff check backend
+      - run: uv run --project backend mypy backend/src
+      - run: uv run --project backend pytest -c backend/pyproject.toml
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --dir frontend typecheck
+      - run: pnpm --dir frontend test -- --run
+      - run: pnpm --dir frontend build
+
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm exec playwright test
+
+  migrations:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: migration_test
+          POSTGRES_USER: transcriber
+          POSTGRES_PASSWORD: transcriber_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U transcriber -d migration_test"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql+psycopg://transcriber:transcriber_test@localhost:5432/migration_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --project backend --locked
+      - run: uv run --project backend alembic -c backend/alembic.ini upgrade head
+      - run: uv run --project backend alembic -c backend/alembic.ini downgrade base
+      - run: uv run --project backend alembic -c backend/alembic.ini upgrade head

@@ -16,7 +16,7 @@
   --line-bright: #3b4d65;
   --ink: #eaf0f7;
   --muted: #9cacbf;
-  --faint: #718197;
+  --faint: #8292a8;
   --tape-blue: #7497db;
   --oxide: #dc8b59;
   --oxide-light: #f2b080;
@@ -538,7 +538,7 @@ button {
 }
 
 .new-transcription {
-  padding: clamp(44px, 7vw, 96px) clamp(24px, 7vw, 100px) 80px;
+  padding: clamp(44px, 6vw, 86px) clamp(24px, 5vw, 72px) 80px;
 }
 
 .section-heading {
@@ -556,9 +556,9 @@ button {
 }
 
 .section-heading h1 {
-  max-width: 780px;
+  max-width: 720px;
   margin-top: 10px;
-  font-size: clamp(2.5rem, 5.7vw, 5.6rem);
+  font-size: clamp(2.5rem, 4.8vw, 4.8rem);
   font-weight: 720;
   letter-spacing: -0.065em;
   line-height: 0.96;

@@ -6,9 +6,9 @@
 ## Goal
 
 Replace the single Railway-configured owner login with a combined sign-in-or-registration flow.
-Any new username and valid PIN creates a private account and signs the user in immediately. An
-existing username signs in only with its correct PIN. Every account sees and controls only its own
-recordings, transcripts, uploads, playback links, retries, and deletions.
+Any new non-reserved username and valid PIN creates a private account and signs the user in
+immediately. An existing username signs in only with its correct PIN. Every account sees and
+controls only its own recordings, transcripts, uploads, playback links, retries, and deletions.
 
 This design also changes the landing-page promise from iPhone-specific transcription to
 transcription of any supported audio file. iPhone recordings remain supported, but they are one
@@ -29,6 +29,8 @@ supported formats, languages, retention, recovery, and Railway architecture rema
   `Assad` and `assad` identify the same account.
 - PINs remain numeric and contain 6–12 digits.
 - The old Railway-configured `owner` account and its PIN do not remain valid.
+- The normalized username `owner` is permanently reserved in every casing. It cannot be registered;
+  the application retains neither the old PIN nor its hash.
 - Each user has a private recording history and one active upload or recording at a time.
 - Different users may upload or queue work independently. The single worker continues processing
   jobs sequentially.
@@ -85,13 +87,14 @@ The existing `/api/auth/login` boundary becomes a combined sign-in-or-registrati
 browser does not need to decide which mode applies.
 
 1. Validate and normalize the username and validate the PIN shape before database work.
-2. Apply the existing bounded attempt control using the normalized username and client key.
-3. Lock or look up the normalized username within a transaction.
-4. If the user exists, verify the submitted PIN against its Argon2id hash.
-5. If verification succeeds, clear failed-attempt state and issue a session.
-6. If verification fails, record the failure and return a distinct safe error code for an incorrect
+2. Reject the reserved normalized username `owner` with a safe unavailable-username response.
+3. Apply the existing bounded attempt control using the normalized username and client key.
+4. Lock or look up the normalized username within a transaction.
+5. If the user exists, verify the submitted PIN against its Argon2id hash.
+6. If verification succeeds, clear failed-attempt state and issue a session.
+7. If verification fails, record the failure and return a distinct safe error code for an incorrect
    PIN.
-7. If the user does not exist, hash the PIN, insert the user, and issue a session in the same
+8. If the user does not exist, hash the PIN, insert the user, and issue a session in the same
    transaction.
 
 Concurrent first requests for the same normalized username are resolved by the unique constraint.
@@ -117,6 +120,8 @@ accessible confirmation without adding another step.
 
 Open registration means anyone who can reach the public domain may create a username. Preventing
 public registration, adding invitations, and account recovery are explicitly outside this version.
+The permanently reserved `owner` identity is the sole registration exception and exists only to
+retire the former Railway credential without retaining it.
 
 ## API authorization changes
 
@@ -161,6 +166,7 @@ iPhone-led private-owner screen to a general audio-transcription entry point.
 ### User-facing failures
 
 - Existing username with wrong PIN: `That PIN is incorrect for this username.`
+- Reserved username: `That username is unavailable.`
 - Invalid PIN: `Use a 6–12 digit PIN.`
 - Invalid username: `Use 3–32 letters or numbers. You may also use ., _ or -.`
 - Locked attempts: retain the current actionable retry timing.
@@ -187,7 +193,8 @@ After the empty-state guard passes:
 3. Deploy compatible web and worker images.
 4. Remove `APP_USERNAME` and `APP_PIN_HASH` from both Railway services after the new version is
    healthy; retain the application session secret.
-5. Confirm the previous `owner` credentials no longer authenticate.
+5. Confirm every casing of `owner` returns the unavailable-username response, creates no user row,
+   and the previous credentials cannot authenticate.
 6. Register a temporary normalized smoke-test account through the public domain.
 7. Upload and transcribe a short spoken M4A, verify transcript download and playback, delete the
    recording and Bucket objects, then remove the temporary user directly through an operator-safe
@@ -212,6 +219,7 @@ single-owner credential model.
 - Attempt windows, lockouts, session rotation, expiry, logout, cookies, CSRF, and session revocation
   remain correct.
 - Old Railway owner credentials do not authenticate after migration.
+- `owner`, `Owner`, and `OWNER` cannot be registered and create no user rows.
 
 ### Ownership tests
 
@@ -243,8 +251,8 @@ single-owner credential model.
 3. Usernames are case-insensitive and displayed in lowercase.
 4. An existing username accepts only its correct PIN and shows the approved incorrect-PIN message
    otherwise.
-5. The old configured owner account no longer works and its Railway username/PIN variables are
-   removed.
+5. The old configured owner account no longer works, `owner` is permanently unavailable in every
+   casing, and its Railway username/PIN variables are removed.
 6. Every account sees and controls only its own recordings and storage authorizations.
 7. One active recording is allowed per account, while different users may queue work independently.
 8. The existing long-file, format, language, restart, transcript, playback, retention, and deletion

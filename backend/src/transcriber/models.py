@@ -84,10 +84,35 @@ def enum_column(enum_type: type[StrEnum], *, name: str) -> Enum:
     )
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    username: Mapped[str] = mapped_column(String(128), unique=True)
+    pin_hash: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("now()")
+    )
+
+    sessions: Mapped[list[AuthSession]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    recordings: Mapped[list[Recording]] = relationship(back_populates="user")
+
+    __table_args__ = (
+        CheckConstraint(
+            "char_length(username) between 3 and 32", name="ck_user_username_length"
+        ),
+    )
+
+
 class AuthSession(Base):
     __tablename__ = "auth_sessions"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
     token_hmac: Mapped[str] = mapped_column(String(64), unique=True)
     csrf_hmac: Mapped[str] = mapped_column(String(64))
     credential_version: Mapped[str] = mapped_column(String(64))
@@ -100,6 +125,8 @@ class AuthSession(Base):
     )
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    user: Mapped[User] = relationship(back_populates="sessions")
 
 
 class LoginAttempt(Base):
@@ -120,6 +147,7 @@ class Recording(Base):
     __tablename__ = "recordings"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
     display_filename: Mapped[str] = mapped_column(String(255))
     reported_content_type: Mapped[str] = mapped_column(String(255))
     expected_bytes: Mapped[int] = mapped_column(BigInteger)
@@ -154,6 +182,7 @@ class Recording(Base):
         DateTime(timezone=True), index=True
     )
 
+    user: Mapped[User] = relationship(back_populates="recordings")
     upload_sessions: Mapped[list[UploadSession]] = relationship(
         back_populates="recording", cascade="all, delete-orphan"
     )
@@ -168,8 +197,8 @@ class Recording(Base):
         CheckConstraint("completed_chunks >= 0", name="ck_recording_completed_chunks"),
         CheckConstraint("total_chunks >= 0", name="ck_recording_total_chunks"),
         Index(
-            "uq_recordings_one_active",
-            text("(1)"),
+            "uq_recordings_one_active_per_user",
+            "user_id",
             unique=True,
             postgresql_where=text(
                 "status in ('uploading', 'queued', 'validating', 'normalizing', "

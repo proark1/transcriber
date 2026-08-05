@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
 
 import { installMockApi, signIn } from "./support/mockApi.ts";
 
-test("uploads an iPhone file and exposes a byte-identical finished transcript", async ({
+test("uploads a supported audio file and exposes a byte-identical finished transcript", async ({
   context,
   page,
 }) => {
@@ -15,16 +15,16 @@ test("uploads an iPhone file and exposes a byte-identical finished transcript", 
 
   await page.getByLabel("Spoken language").selectOption("tr");
   await page.locator('input[type="file"]').setInputFiles({
-    name: "iphone-note.m4a",
+    name: "field-recording.m4a",
     mimeType: "audio/mp4",
-    buffer: Buffer.from("synthetic iphone audio"),
+    buffer: Buffer.from("synthetic audio"),
   });
-  await expect(page.getByRole("heading", { name: "iphone-note.m4a" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "field-recording.m4a" })).toBeVisible();
   await page.getByRole("button", { name: "Start transcription" }).click();
 
   await expect(page.getByRole("heading", { name: "Waiting to start" })).toBeVisible();
   expect(state.uploadedPart).toBe(true);
-  expect(state.recordings[0]).toMatchObject({ filename: "iphone-note.m4a", language: "tr" });
+  expect(state.recordings[0]).toMatchObject({ filename: "field-recording.m4a", language: "tr" });
 
   Object.assign(state.recordings[0], {
     status: "completed",
@@ -36,7 +36,7 @@ test("uploads an iPhone file and exposes a byte-identical finished transcript", 
     hasTranscript: true,
   });
   await page.reload();
-  await page.getByRole("button", { name: /iphone-note\.m4a.*Ready/ }).click();
+  await page.getByRole("button", { name: /field-recording\.m4a.*Ready/ }).click();
 
   await expect(page.getByText("First clean paragraph.")).toBeVisible();
   await page.getByRole("button", { name: "Copy text" }).click();

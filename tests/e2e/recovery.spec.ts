@@ -36,7 +36,7 @@ test("offers to resume a locally checkpointed upload", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(() => {
     localStorage.setItem(
-      "transcriber.pending-upload.v1",
+      "transcriber.pending-upload.v2.assad",
       JSON.stringify({
         clientRequestId: "request-resume",
         uploadSessionId: "upload-1",

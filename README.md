@@ -1,12 +1,14 @@
 # Transcriber
 
-Private, restart-safe audio transcription for Railway. Upload one recording, choose English,
-German, or Turkish, and keep the original audio plus a clean text transcript in a permanent
-history.
+Private, restart-safe audio transcription for Railway. Create an account with a username and
+6-12 digit PIN, upload supported audio from any source, choose English, German, or Turkish, and
+keep the original audio plus a clean text transcript in your private history.
 
 The application follows the approved
 [design](docs/superpowers/specs/2026-08-03-railway-transcriber-design.md) and
-[implementation plan](docs/superpowers/plans/2026-08-04-railway-transcriber-implementation-plan.md).
+[implementation plan](docs/superpowers/plans/2026-08-04-railway-transcriber-implementation-plan.md),
+plus the approved [private accounts design](docs/superpowers/specs/2026-08-05-self-registering-private-accounts-design.md)
+and [private accounts plan](docs/superpowers/plans/2026-08-05-self-registering-private-accounts-implementation-plan.md).
 
 ## Stack
 
@@ -68,7 +70,7 @@ The root `Dockerfile` builds one immutable image for both Railway services. Set 
 Config as Code path to `/railway.web.json` and the worker's to `/railway.worker.json`.
 
 Follow the [Railway deployment runbook](docs/runbooks/railway-deployment.md) for resource creation,
-private Bucket references, owner credentials, CORS, the worker model-cache volume, and smoke tests.
+private Bucket references, account behavior, CORS, the worker model-cache volume, and smoke tests.
 Use the [operations runbook](docs/runbooks/operations.md) for sizing, monitoring, backup, retry,
 deletion recovery, and safe worker restarts.
 

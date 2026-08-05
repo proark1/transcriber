@@ -28,6 +28,7 @@ class RecordingRepository:
     def create_uploading_recording(
         self,
         *,
+        user_id: UUID,
         recording_id: UUID | None = None,
         display_filename: str,
         reported_content_type: str,
@@ -36,6 +37,7 @@ class RecordingRepository:
         original_object_key: str,
     ) -> Recording:
         recording_values: dict[str, object] = {
+            "user_id": user_id,
             "display_filename": display_filename,
             "reported_content_type": reported_content_type,
             "expected_bytes": expected_bytes,
@@ -51,7 +53,7 @@ class RecordingRepository:
             self._session.flush()
         except IntegrityError as error:
             self._session.rollback()
-            if _constraint_name(error) == "uq_recordings_one_active":
+            if _constraint_name(error) == "uq_recordings_one_active_per_user":
                 raise ActiveRecordingExists("Another recording is already active.") from error
             raise
         return recording

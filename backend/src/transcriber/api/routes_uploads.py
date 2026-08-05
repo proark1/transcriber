@@ -12,6 +12,7 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, HTTPException, Request, Response, status
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from transcriber.api.contracts import (
@@ -25,6 +26,7 @@ from transcriber.api.contracts import (
 )
 from transcriber.api.dependencies import Authenticated, MutationAuthenticated, Settings
 from transcriber.models import (
+    Recording,
     RecordingStatus,
     UploadPart,
     UploadSession,
@@ -69,8 +71,12 @@ def create_upload(
     storage = _storage(request)
     existing = database.scalar(
         select(UploadSession)
+        .join(UploadSession.recording)
         .options(selectinload(UploadSession.recording), selectinload(UploadSession.parts))
-        .where(UploadSession.client_request_id == payload.client_request_id)
+        .where(
+            UploadSession.client_request_id == payload.client_request_id,
+            Recording.user_id == auth.user.id,
+        )
     )
     if existing is not None:
         if not _same_request(existing, payload):
@@ -83,6 +89,7 @@ def create_upload(
     repository = RecordingRepository(database)
     try:
         recording = repository.create_uploading_recording(
+            user_id=auth.user.id,
             recording_id=recording_id,
             display_filename=payload.filename,
             reported_content_type=payload.content_type,
@@ -111,6 +118,17 @@ def create_upload(
     database.add(upload)
     try:
         database.flush()
+    except IntegrityError as error:
+        try:
+            storage.abort_multipart(object_key, provider_upload_id)
+        except StorageError:
+            pass
+        if _constraint_name(error) in {
+            "upload_sessions_client_request_id_key",
+            "uq_upload_sessions_client_request_id",
+        }:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT) from error
+        raise
     except Exception:
         try:
             storage.abort_multipart(object_key, provider_upload_id)
@@ -126,7 +144,7 @@ def get_upload(
     request: Request,
     auth: Authenticated,
 ) -> UploadStateResponse:
-    upload = _load_upload(auth.database, upload_session_id)
+    upload = _load_upload(auth.database, upload_session_id, user_id=auth.user.id)
     if upload.status is UploadStatus.UPLOADING:
         parts = _list_and_reconcile(auth.database, _storage(request), upload)
         return _state_response(upload, parts)
@@ -141,7 +159,9 @@ def authorize_parts(
     auth: MutationAuthenticated,
     settings: Settings,
 ) -> AuthorizedPartsResponse:
-    upload = _load_upload(auth.database, upload_session_id, for_update=True)
+    upload = _load_upload(
+        auth.database, upload_session_id, user_id=auth.user.id, for_update=True
+    )
     _require_uploading(upload)
     _require_not_expired(auth.database, _storage(request), upload)
     part_count = _part_count(upload)
@@ -175,7 +195,7 @@ def complete_upload(
 ) -> CompleteUploadResponse:
     database = auth.database
     storage = _storage(request)
-    upload = _load_upload(database, upload_session_id, for_update=True)
+    upload = _load_upload(database, upload_session_id, user_id=auth.user.id, for_update=True)
     if upload.status is UploadStatus.COMPLETED:
         return CompleteUploadResponse(
             recording_id=upload.recording_id, status=upload.recording.status
@@ -217,7 +237,9 @@ def abort_upload(
     response: Response,
     auth: MutationAuthenticated,
 ) -> None:
-    upload = _load_upload(auth.database, upload_session_id, for_update=True)
+    upload = _load_upload(
+        auth.database, upload_session_id, user_id=auth.user.id, for_update=True
+    )
     if upload.status in {UploadStatus.ABORTED, UploadStatus.EXPIRED}:
         response.status_code = status.HTTP_204_NO_CONTENT
         return
@@ -278,12 +300,17 @@ def _state_response(
 
 
 def _load_upload(
-    database: Session, upload_session_id: UUID, *, for_update: bool = False
+    database: Session,
+    upload_session_id: UUID,
+    *,
+    user_id: UUID,
+    for_update: bool = False,
 ) -> UploadSession:
     statement = (
         select(UploadSession)
+        .join(UploadSession.recording)
         .options(selectinload(UploadSession.recording), selectinload(UploadSession.parts))
-        .where(UploadSession.id == upload_session_id)
+        .where(UploadSession.id == upload_session_id, Recording.user_id == user_id)
     )
     if for_update:
         statement = statement.with_for_update()
@@ -417,3 +444,8 @@ def _finalize_completed(database: Session, upload: UploadSession) -> CompleteUpl
         recording_id=upload.recording_id,
         status=RecordingStatus.QUEUED,
     )
+
+
+def _constraint_name(error: IntegrityError) -> str | None:
+    diagnostic = getattr(error.orig, "diag", None)
+    return getattr(diagnostic, "constraint_name", None)

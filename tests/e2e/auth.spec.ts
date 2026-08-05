@@ -19,15 +19,33 @@ test("rejects invalid credentials, signs in, and protects private routes", async
   });
   expect(privateStatuses).toEqual([401, 401, 401, 401, 401, 401]);
 
-  await page.getByLabel("Username").fill("owner");
+  await page.getByLabel("Username").fill("Assad");
   await page.getByLabel("PIN").fill("000000");
-  await page.getByRole("button", { name: "Open workspace" }).click();
-  await expect(page.getByRole("alert")).toContainText("wasn’t accepted");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("alert")).toContainText(
+    "That PIN is incorrect for this username.",
+  );
   expect(state.authenticated).toBe(false);
 
   await page.getByLabel("PIN").fill("123456");
-  await page.getByRole("button", { name: "Open workspace" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByRole("heading", { name: "Turn a recording into clean text." })).toBeVisible();
-  await expect(page.getByText("owner", { exact: true })).toBeVisible();
+  await expect(page.getByText("assad", { exact: true })).toBeVisible();
   expect(state.loginAttempts).toBe(2);
+});
+
+test("registers a mixed-case username and keeps owner unavailable", async ({ page }) => {
+  const state = await installMockApi(page);
+  await page.goto("/");
+
+  await page.getByLabel("Username").fill("OWNER");
+  await page.getByLabel("PIN").fill("123456");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("alert")).toHaveText("That username is unavailable.");
+  expect(state.accounts.owner).toBeUndefined();
+
+  await page.getByLabel("Username").fill("New-User");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByText("new-user", { exact: true })).toBeVisible();
+  expect(state.accounts["new-user"]).toBeDefined();
 });

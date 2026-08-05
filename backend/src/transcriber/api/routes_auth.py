@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, Request, Response, status
+from fastapi import APIRouter, Request, Response, status
 from pydantic import BaseModel, ConfigDict
 
 from transcriber.api.dependencies import (
@@ -14,7 +14,15 @@ from transcriber.api.dependencies import (
     MutationAuthenticated,
     Settings,
 )
-from transcriber.auth import SESSION_COOKIE_NAME, InvalidCredentials, LoginLocked
+from transcriber.api.security import ApiProblem
+from transcriber.auth import (
+    SESSION_COOKIE_NAME,
+    IncorrectPin,
+    InvalidPin,
+    InvalidUsername,
+    LoginLocked,
+    UsernameUnavailable,
+)
 
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
 
@@ -31,6 +39,7 @@ class SessionResponse(BaseModel):
     username: str
     csrfToken: str | None = None
     expiresAt: datetime
+    accountCreated: bool = False
 
 
 @router.post("/login", response_model=SessionResponse)
@@ -53,13 +62,37 @@ def login(
         )
     except LoginLocked as error:
         database.commit()
-        raise HTTPException(
+        raise ApiProblem(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            code="rate_limited",
+            message="Too many attempts. Please try again later.",
             headers={"Retry-After": str(error.retry_after_seconds)},
         ) from error
-    except InvalidCredentials as error:
+    except IncorrectPin as error:
         database.commit()
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED) from error
+        raise ApiProblem(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            code="incorrect_pin",
+            message="That PIN is incorrect for this username.",
+        ) from error
+    except InvalidUsername as error:
+        raise ApiProblem(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            code="invalid_username",
+            message="Use 3–32 letters or numbers. You may also use ., _ or -.",
+        ) from error
+    except UsernameUnavailable as error:
+        raise ApiProblem(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            code="username_unavailable",
+            message="That username is unavailable.",
+        ) from error
+    except InvalidPin as error:
+        raise ApiProblem(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            code="invalid_pin",
+            message="Use a 6–12 digit PIN.",
+        ) from error
 
     response.set_cookie(
         SESSION_COOKIE_NAME,
@@ -71,17 +104,18 @@ def login(
         path="/",
     )
     return SessionResponse(
-        username=settings.app_username,
+        username=issued.user.username,
         csrfToken=issued.csrf_token,
         expiresAt=issued.expires_at,
+        accountCreated=issued.account_created,
     )
 
 
 @router.get("/session", response_model=SessionResponse)
-def session(response: Response, auth: Authenticated, settings: Settings) -> SessionResponse:
+def session(response: Response, auth: Authenticated) -> SessionResponse:
     response.headers["Cache-Control"] = "no-store"
     return SessionResponse(
-        username=settings.app_username,
+        username=auth.user.username,
         csrfToken=auth.service.rotate_csrf(auth.database, auth.auth_session),
         expiresAt=auth.auth_session.expires_at,
     )

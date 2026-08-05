@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from transcriber.models import (
@@ -12,6 +13,7 @@ from transcriber.models import (
     Recording,
     RecordingStatus,
     TranscriptionChunk,
+    User,
 )
 from transcriber.worker.repository import (
     LeaseLost,
@@ -28,9 +30,17 @@ def create_recording(
     *,
     status: RecordingStatus,
     chunk_statuses: list[ChunkStatus] | None = None,
+    user: User | None = None,
 ) -> Recording:
+    if user is None:
+        user = database.scalar(select(User).order_by(User.created_at).limit(1))
+    if user is None:
+        user = User(username="worker-user", pin_hash="test-only-pin-hash")
+        database.add(user)
+        database.flush()
     recording = Recording(
         id=uuid4(),
+        user_id=user.id,
         display_filename="memo.m4a",
         reported_content_type="audio/mp4",
         expected_bytes=1_024,
@@ -170,7 +180,9 @@ def test_manual_retry_preserves_completed_chunks_and_resets_only_incomplete(
     with app_session_factory.begin() as database:
         failed_chunk = database.get(Recording, recording.id).chunks[1]  # type: ignore[union-attr]
         failed_chunk.attempt_count = 3
-        retried = WorkerRepository(database).retry_failed(recording.id)
+        retried = WorkerRepository(database).retry_failed(
+            recording.id, user_id=recording.user_id
+        )
         assert retried.status is RecordingStatus.TRANSCRIBING
 
     with app_session_factory() as database:
@@ -192,7 +204,53 @@ def test_manual_retry_rejects_when_another_recording_is_active(
 
     with app_session_factory.begin() as database:
         with pytest.raises(RetryConflict):
-            WorkerRepository(database).retry_failed(failed.id)
+            WorkerRepository(database).retry_failed(failed.id, user_id=failed.user_id)
+
+
+def test_another_users_active_recording_does_not_block_retry(
+    database_session: Session, app_session_factory: sessionmaker[Session]
+) -> None:
+    failed = create_recording(database_session, status=RecordingStatus.FAILED)
+    other_user = User(username="other-worker-user", pin_hash="test-only-pin-hash")
+    database_session.add(other_user)
+    database_session.flush()
+    create_recording(database_session, status=RecordingStatus.QUEUED, user=other_user)
+
+    with app_session_factory.begin() as database:
+        retried = WorkerRepository(database).retry_failed(
+            failed.id, user_id=failed.user_id
+        )
+
+    assert retried.status is RecordingStatus.QUEUED
+
+
+def test_global_worker_claims_keep_each_recordings_user(
+    database_session: Session, app_session_factory: sessionmaker[Session]
+) -> None:
+    first = create_recording(database_session, status=RecordingStatus.QUEUED)
+    second_user = User(username="second-worker-user", pin_hash="test-only-pin-hash")
+    database_session.add(second_user)
+    database_session.flush()
+    second = create_recording(
+        database_session, status=RecordingStatus.QUEUED, user=second_user
+    )
+
+    with app_session_factory.begin() as database:
+        first_claim = WorkerRepository(database).claim_next("single-worker", now=NOW)
+    with app_session_factory.begin() as database:
+        second_claim = WorkerRepository(database).claim_next("single-worker", now=NOW)
+
+    assert first_claim is not None and second_claim is not None
+    claimed_ids = {first_claim.recording_id, second_claim.recording_id}
+    assert claimed_ids == {first.id, second.id}
+    with app_session_factory() as database:
+        owners = {
+            recording.id: recording.user_id
+            for recording in database.scalars(
+                select(Recording).where(Recording.id.in_(claimed_ids))
+            )
+        }
+    assert owners == {first.id: first.user_id, second.id: second.user_id}
 
 
 def test_old_owner_cannot_commit_after_a_stale_claim_is_replaced(

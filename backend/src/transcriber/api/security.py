@@ -18,6 +18,22 @@ from transcriber.config import AppSettings
 logger = logging.getLogger("transcriber.http")
 
 
+class ApiProblem(HTTPException):
+    """An explicitly approved safe error envelope."""
+
+    def __init__(
+        self,
+        *,
+        status_code: int,
+        code: str,
+        message: str,
+        headers: dict[str, str] | None = None,
+    ) -> None:
+        super().__init__(status_code=status_code, detail=message, headers=headers)
+        self.code = code
+        self.message = message
+
+
 def error_response(
     request: Request,
     *,
@@ -40,6 +56,14 @@ def error_response(
 
 
 async def http_exception_handler(request: Request, error: HTTPException) -> JSONResponse:
+    if isinstance(error, ApiProblem):
+        return error_response(
+            request,
+            status_code=error.status_code,
+            code=error.code,
+            message=error.message,
+            headers=cast(dict[str, str] | None, error.headers),
+        )
     messages = {
         status.HTTP_400_BAD_REQUEST: "The request could not be accepted.",
         status.HTTP_401_UNAUTHORIZED: "Authentication required.",

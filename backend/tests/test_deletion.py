@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
@@ -19,6 +20,7 @@ from transcriber.models import (
     TranscriptionChunk,
     UploadSession,
     UploadStatus,
+    User,
 )
 from transcriber.storage import ObjectMetadata
 from transcriber.worker.repository import LeaseLost, WorkerRepository
@@ -56,13 +58,14 @@ def test_deletion_removes_original_playback_chunks_transcript_and_database_rows(
     database_session: Session,
     app_session_factory: sessionmaker[Session],
     fake_storage: FakeObjectStorage,
+    test_user: User,
 ) -> None:
-    recording = history_recording(database_session)
+    recording = history_recording(database_session, user=test_user)
     chunk = add_chunk(database_session, recording)
     seed_all_objects(fake_storage, recording, chunk)
     service = DeletionService(app_session_factory, fake_storage)
 
-    service.begin(recording.id)
+    service.begin(recording.id, user_id=test_user.id)
     deleted = service.reconcile(recording.id)
 
     assert deleted is True
@@ -76,14 +79,15 @@ def test_storage_failure_keeps_deleting_visible_and_retryable(
     database_session: Session,
     app_session_factory: sessionmaker[Session],
     fake_storage: FakeObjectStorage,
+    test_user: User,
 ) -> None:
-    recording = history_recording(database_session)
+    recording = history_recording(database_session, user=test_user)
     chunk = add_chunk(database_session, recording)
     seed_all_objects(fake_storage, recording, chunk)
     fake_storage.fail_delete = True
     service = DeletionService(app_session_factory, fake_storage)
 
-    service.begin(recording.id)
+    service.begin(recording.id, user_id=test_user.id)
     assert service.reconcile(recording.id) is False
     with app_session_factory() as database:
         stored = database.get(Recording, recording.id)
@@ -101,16 +105,17 @@ def test_deletion_waits_for_a_live_worker_lease(
     database_session: Session,
     app_session_factory: sessionmaker[Session],
     fake_storage: FakeObjectStorage,
+    test_user: User,
 ) -> None:
     now = datetime(2026, 8, 4, 12, tzinfo=UTC)
-    recording = history_recording(database_session)
+    recording = history_recording(database_session, user=test_user)
     recording.lease_owner = "worker"
     recording.lease_expires_at = now + timedelta(minutes=5)
     database_session.commit()
     fake_storage.objects[recording.original_object_key] = ObjectMetadata(5_000)
     service = DeletionService(app_session_factory, fake_storage)
 
-    service.begin(recording.id, now=now)
+    service.begin(recording.id, user_id=test_user.id, now=now)
     assert service.reconcile(recording.id, now=now) is False
     assert recording.original_object_key in fake_storage.objects
     assert service.reconcile(recording.id, now=now + timedelta(minutes=5, seconds=1)) is True
@@ -120,12 +125,14 @@ def test_deletion_aborts_an_unfinished_multipart_upload(
     database_session: Session,
     app_session_factory: sessionmaker[Session],
     fake_storage: FakeObjectStorage,
+    test_user: User,
 ) -> None:
     recording_id = uuid4()
     object_key = f"recordings/{recording_id}/original/source"
     provider_id = fake_storage.create_multipart(object_key, "audio/mp4")
     recording = Recording(
         id=recording_id,
+        user_id=test_user.id,
         display_filename="memo.m4a",
         reported_content_type="audio/mp4",
         expected_bytes=1_024,
@@ -148,7 +155,7 @@ def test_deletion_aborts_an_unfinished_multipart_upload(
     database_session.commit()
     service = DeletionService(app_session_factory, fake_storage)
 
-    service.begin(recording.id)
+    service.begin(recording.id, user_id=test_user.id)
     assert service.reconcile(recording.id) is True
     assert fake_storage.aborted_uploads == [provider_id]
 
@@ -158,8 +165,9 @@ def test_delete_route_returns_pending_until_cleanup_succeeds(
     database_session: Session,
     app_session_factory: sessionmaker[Session],
     fake_storage: FakeObjectStorage,
+    test_user: User,
 ) -> None:
-    recording = history_recording(database_session)
+    recording = history_recording(database_session, user=test_user)
     chunk = add_chunk(database_session, recording)
     seed_all_objects(fake_storage, recording, chunk)
     headers = authenticated_headers(api_client)
@@ -186,9 +194,9 @@ def test_delete_route_returns_pending_until_cleanup_succeeds(
 
 
 def test_delete_route_requires_authentication_and_csrf(
-    api_client: TestClient, database_session: Session
+    api_client: TestClient, database_session: Session, test_user: User
 ) -> None:
-    recording = history_recording(database_session)
+    recording = history_recording(database_session, user=test_user)
     assert api_client.delete(f"/api/recordings/{recording.id}").status_code == 401
 
     authenticated_headers(api_client)
@@ -208,10 +216,12 @@ def test_delete_route_returns_not_found_for_missing_recording(
 def test_deleting_history_waits_until_the_active_recording_finishes(
     api_client: TestClient,
     database_session: Session,
+    test_user: User,
 ) -> None:
-    completed = history_recording(database_session)
+    completed = history_recording(database_session, user=test_user)
     active = history_recording(
         database_session,
+        user=test_user,
         status=RecordingStatus.QUEUED,
         transcript=None,
         playback=False,
@@ -224,13 +234,37 @@ def test_deleting_history_waits_until_the_active_recording_finishes(
     assert response.status_code == 409
 
 
+def test_another_users_active_recording_does_not_block_deletion(
+    api_client: TestClient,
+    database_session: Session,
+    test_user: User,
+    user_factory: Callable[..., User],
+) -> None:
+    other_user = user_factory(username="other-user")
+    completed = history_recording(database_session, user=test_user)
+    history_recording(
+        database_session,
+        user=other_user,
+        status=RecordingStatus.QUEUED,
+        transcript=None,
+        playback=False,
+    )
+    headers = authenticated_headers(api_client)
+
+    response = api_client.delete(f"/api/recordings/{completed.id}", headers=headers)
+
+    assert response.status_code == 204
+
+
 def test_a_worker_cannot_commit_new_text_after_deletion_begins(
     database_session: Session,
     app_session_factory: sessionmaker[Session],
     fake_storage: FakeObjectStorage,
+    test_user: User,
 ) -> None:
     recording = history_recording(
         database_session,
+        user=test_user,
         status=RecordingStatus.TRANSCRIBING,
         transcript=None,
     )
@@ -254,7 +288,7 @@ def test_a_worker_cannot_commit_new_text_after_deletion_begins(
         assert claim is not None
 
     service = DeletionService(app_session_factory, fake_storage)
-    service.begin(recording.id, now=now)
+    service.begin(recording.id, user_id=test_user.id, now=now)
     with app_session_factory.begin() as database:
         with pytest.raises(LeaseLost):
             WorkerRepository(database).complete_chunk(

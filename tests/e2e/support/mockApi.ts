@@ -31,7 +31,9 @@ export interface MockRecording {
 
 export interface MockApiState {
   authenticated: boolean;
+  currentUsername: string | null;
   recordings: MockRecording[];
+  accounts: Record<string, { pin: string; recordings: MockRecording[] }>;
   transcript: string;
   uploadedPart: boolean;
   loginAttempts: number;
@@ -42,7 +44,7 @@ export interface MockApiState {
 export function completedRecording(overrides: Partial<MockRecording> = {}): MockRecording {
   return {
     id: "recording-ready",
-    filename: "Interview from iPhone.m4a",
+    filename: "Studio Interview.m4a",
     contentType: "audio/mp4",
     language: "de",
     status: "completed",
@@ -63,9 +65,13 @@ export async function installMockApi(
   page: Page,
   options: { authenticated?: boolean; recordings?: MockRecording[]; transcript?: string } = {},
 ): Promise<MockApiState> {
+  const initialRecordings = options.recordings ?? [];
+  const accounts = { assad: { pin: "123456", recordings: initialRecordings } };
   const state: MockApiState = {
     authenticated: options.authenticated ?? false,
-    recordings: options.recordings ?? [],
+    currentUsername: options.authenticated ? "assad" : null,
+    recordings: initialRecordings,
+    accounts,
     transcript: options.transcript ?? "First clean paragraph.\n\nSecond clean paragraph.\n",
     uploadedPart: false,
     loginAttempts: 0,
@@ -102,18 +108,48 @@ async function handleRoute(route: Route, state: MockApiState): Promise<void> {
       await apiError(route, 401, "unauthenticated", "Authentication required.");
       return;
     }
-    await json(route, session());
+    await json(route, session(state.currentUsername ?? "assad", false));
     return;
   }
   if (path === "/api/auth/login" && method === "POST") {
     state.loginAttempts += 1;
     const submitted = request.postDataJSON() as { username?: string; pin?: string };
-    if (submitted.username !== "owner" || submitted.pin !== "123456") {
-      await apiError(route, 401, "unauthenticated", "Authentication required.");
+    const username = (submitted.username ?? "").trim().normalize("NFKC").toLowerCase();
+    const pin = submitted.pin ?? "";
+    if (username === "owner") {
+      await apiError(route, 422, "username_unavailable", "That username is unavailable.");
       return;
     }
+    if (!/^[a-z0-9._-]{3,32}$/.test(username)) {
+      await apiError(
+        route,
+        422,
+        "invalid_username",
+        "Use 3–32 letters or numbers. You may also use ., _ or -.",
+      );
+      return;
+    }
+    if (!/^[0-9]{6,12}$/.test(pin)) {
+      await apiError(route, 422, "invalid_pin", "Use a 6–12 digit PIN.");
+      return;
+    }
+    const existing = state.accounts[username];
+    if (existing && existing.pin !== pin) {
+      await apiError(
+        route,
+        401,
+        "incorrect_pin",
+        "That PIN is incorrect for this username.",
+      );
+      return;
+    }
+    const accountCreated = existing === undefined;
+    const account = existing ?? { pin, recordings: [] };
+    state.accounts[username] = account;
     state.authenticated = true;
-    await json(route, session());
+    state.currentUsername = username;
+    state.recordings = account.recordings;
+    await json(route, session(username, accountCreated));
     return;
   }
   if (!state.authenticated) {
@@ -122,6 +158,7 @@ async function handleRoute(route: Route, state: MockApiState): Promise<void> {
   }
   if (path === "/api/auth/logout" && method === "POST") {
     state.authenticated = false;
+    state.currentUsername = null;
     await route.fulfill({ status: 204, body: "" });
     return;
   }
@@ -150,7 +187,7 @@ async function handleRoute(route: Route, state: MockApiState): Promise<void> {
     state.recordings = [
       completedRecording({
         id: "recording-uploaded",
-        filename: "iphone-note.m4a",
+        filename: "field-recording.m4a",
         language: "tr",
         status: "queued",
         completedAt: null,
@@ -246,12 +283,13 @@ function uploadState(state: MockApiState, confirmed: boolean) {
   };
 }
 
-function session() {
+function session(username: string, accountCreated: boolean) {
   return {
     authenticated: true,
-    username: "owner",
+    username,
     csrfToken: "csrf-test-token",
     expiresAt: "2026-08-11T12:00:00Z",
+    accountCreated,
   };
 }
 
@@ -270,8 +308,8 @@ async function apiError(
 
 export async function signIn(page: Page): Promise<void> {
   await page.goto("/");
-  await page.getByLabel("Username").fill("owner");
+  await page.getByLabel("Username").fill("assad");
   await page.getByLabel("PIN").fill("123456");
-  await page.getByRole("button", { name: "Open workspace" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
   await page.getByRole("heading", { name: "Turn a recording into clean text." }).waitFor();
 }

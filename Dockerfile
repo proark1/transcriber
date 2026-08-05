@@ -38,6 +38,7 @@ COPY backend/pyproject.toml backend/uv.lock ./backend/
 RUN uv sync --project backend --frozen --no-dev --no-install-project
 COPY backend ./backend
 COPY scripts/configure_bucket_cors.py ./scripts/configure_bucket_cors.py
+COPY scripts/cleanup_smoke_user.py ./scripts/cleanup_smoke_user.py
 COPY --from=frontend-build /build/frontend/dist ./frontend/dist
 
 EXPOSE 8000

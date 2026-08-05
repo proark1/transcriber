@@ -16,8 +16,8 @@ export function NewTranscription({
   activeRecording: RecordingResponse | null;
   onQueued: (recordingId: string) => void | Promise<void>;
 }) {
-  const { api } = useAuth();
-  const upload = useMultipartUpload({ api, onQueued });
+  const { api, username } = useAuth();
+  const upload = useMultipartUpload({ api, username: username ?? "", onQueued });
   const [file, setFile] = useState<File | null>(null);
   const [language, setLanguage] = useState<Language>("en");
   const [dragging, setDragging] = useState(false);
@@ -95,7 +95,7 @@ export function NewTranscription({
           <p>
             {file
               ? formatBytes(file.size)
-              : "Or choose a file from this computer or your iPhone"}
+              : "Or choose a file from your phone, computer, or recorder"}
           </p>
           <label className="button button--secondary" htmlFor={inputId}>
             {file ? "Choose a different file" : "Choose audio file"}

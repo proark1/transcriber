@@ -12,12 +12,13 @@ from sqlalchemy.orm import Session, sessionmaker
 from transcriber.api.security import require_csrf
 from transcriber.auth import SESSION_COOKIE_NAME, AuthenticationService
 from transcriber.config import AppSettings
-from transcriber.models import AuthSession
+from transcriber.models import AuthSession, User
 
 
 @dataclass(frozen=True)
 class RequestAuth:
     database: Session
+    user: User
     auth_session: AuthSession
     service: AuthenticationService
 
@@ -57,7 +58,12 @@ def require_authentication(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required.",
         )
-    return RequestAuth(database=database, auth_session=auth_session, service=service)
+    return RequestAuth(
+        database=database,
+        user=auth_session.user,
+        auth_session=auth_session,
+        service=service,
+    )
 
 
 Authenticated = Annotated[RequestAuth, Depends(require_authentication)]

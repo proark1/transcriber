@@ -11,9 +11,10 @@ describe("AppShell", () => {
         new Response(
           JSON.stringify({
             authenticated: true,
-            username: "owner",
+            username: "assad",
             csrfToken: "csrf-token",
             expiresAt: "2026-08-11T12:00:00Z",
+            accountCreated: false,
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },
         ),
@@ -28,7 +29,7 @@ describe("AppShell", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    expect(await screen.findByText("owner")).toBeVisible();
+    expect(await screen.findByText("assad")).toBeVisible();
     expect(
       await screen.findByRole("heading", { name: "Turn a recording into clean text." }),
     ).toBeVisible();
@@ -39,7 +40,9 @@ describe("AppShell", () => {
     expect(screen.getByText(/M4A.*MP3.*WAV.*AAC.*FLAC.*OGG.*OPUS.*MP4/)).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Sign out" }));
 
-    expect(await screen.findByRole("heading", { name: "Your recordings stay yours." })).toBeVisible();
+    expect(
+      await screen.findByRole("heading", { name: "Transcribe any audio file into clear text." }),
+    ).toBeVisible();
     const logoutInit = fetchMock.mock.calls[2]?.[1];
     expect(new Headers(logoutInit?.headers).get("X-CSRF-Token")).toBe("csrf-token");
   });

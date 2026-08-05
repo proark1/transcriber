@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from tests.fakes import FakeObjectStorage
 from transcriber.config import AppSettings
 from transcriber.media import AudioProbe, ChunkPlan, MediaError, Silence
-from transcriber.models import Language, Recording, RecordingStatus, TranscriptionChunk
+from transcriber.models import Language, Recording, RecordingStatus, TranscriptionChunk, User
 from transcriber.storage import ObjectMetadata
 from transcriber.worker.preparation import PreparationService
 
@@ -48,12 +48,17 @@ class FakeMediaProcessor:
 
 
 def create_queued_recording(
-    database: Session, storage: FakeObjectStorage, *, expected_bytes: int = 5
+    database: Session,
+    storage: FakeObjectStorage,
+    *,
+    user: User,
+    expected_bytes: int = 5,
 ) -> Recording:
     recording_id = uuid4()
     object_key = f"recordings/{recording_id}/original/source"
     recording = Recording(
         id=recording_id,
+        user_id=user.id,
         display_filename="memo.m4a",
         reported_content_type="audio/mp4",
         expected_bytes=expected_bytes,
@@ -85,8 +90,9 @@ def test_preparation_persists_playback_and_every_chunk_before_transcription(
     app_session_factory: sessionmaker[Session],
     fake_storage: FakeObjectStorage,
     tmp_path: Path,
+    test_user: User,
 ) -> None:
-    recording = create_queued_recording(database_session, fake_storage)
+    recording = create_queued_recording(database_session, fake_storage, user=test_user)
     media = FakeMediaProcessor()
     service = preparation_service(app_settings, app_session_factory, fake_storage, media, tmp_path)
 
@@ -121,8 +127,9 @@ def test_preparation_restart_skips_already_uploaded_chunks(
     app_session_factory: sessionmaker[Session],
     fake_storage: FakeObjectStorage,
     tmp_path: Path,
+    test_user: User,
 ) -> None:
-    recording = create_queued_recording(database_session, fake_storage)
+    recording = create_queued_recording(database_session, fake_storage, user=test_user)
     media = FakeMediaProcessor(fail_once_at=1)
     service = preparation_service(app_settings, app_session_factory, fake_storage, media, tmp_path)
 
@@ -157,8 +164,11 @@ def test_preparation_rejects_a_download_size_mismatch(
     app_session_factory: sessionmaker[Session],
     fake_storage: FakeObjectStorage,
     tmp_path: Path,
+    test_user: User,
 ) -> None:
-    recording = create_queued_recording(database_session, fake_storage, expected_bytes=10)
+    recording = create_queued_recording(
+        database_session, fake_storage, user=test_user, expected_bytes=10
+    )
     fake_storage.objects[recording.original_object_key] = ObjectMetadata(5)
     service = preparation_service(
         app_settings,

@@ -19,9 +19,10 @@ describe("TranscriptView", () => {
       if (path === "/api/auth/session") {
         return json({
           authenticated: true,
-          username: "owner",
+          username: "assad",
           csrfToken: "csrf",
           expiresAt: "2026-08-05T12:00:00Z",
+          accountCreated: false,
         });
       }
       if (path.endsWith("/transcript")) {

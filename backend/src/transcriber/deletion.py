@@ -44,11 +44,19 @@ class DeletionService:
         self._sessions = session_factory
         self._storage = storage
 
-    def begin(self, recording_id: UUID, *, now: datetime | None = None) -> None:
+    def begin(
+        self,
+        recording_id: UUID,
+        *,
+        user_id: UUID,
+        now: datetime | None = None,
+    ) -> None:
         try:
             with self._sessions.begin() as database:
                 recording = database.scalar(
-                    select(Recording).where(Recording.id == recording_id).with_for_update()
+                    select(Recording)
+                    .where(Recording.id == recording_id, Recording.user_id == user_id)
+                    .with_for_update()
                 )
                 if recording is None:
                     raise RecordingNotFound
@@ -57,6 +65,7 @@ class DeletionService:
                         select(
                             exists().where(
                                 Recording.id != recording_id,
+                                Recording.user_id == user_id,
                                 Recording.status.in_(ACTIVE_RECORDING_STATUSES),
                             )
                         )

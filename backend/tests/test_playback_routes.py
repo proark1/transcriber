@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from tests.fakes import FakeObjectStorage
 from tests.test_recording_routes import history_recording
 from tests.test_upload_routes import authenticated_headers
-from transcriber.models import RecordingStatus
+from transcriber.models import RecordingStatus, User
 from transcriber.storage import ObjectMetadata
 
 
@@ -14,8 +14,9 @@ def test_playback_returns_only_a_short_lived_derived_audio_url(
     api_client: TestClient,
     database_session: Session,
     fake_storage: FakeObjectStorage,
+    test_user: User,
 ) -> None:
-    recording = history_recording(database_session)
+    recording = history_recording(database_session, user=test_user)
     assert recording.playback_object_key is not None
     fake_storage.objects[recording.playback_object_key] = ObjectMetadata(1_024, "audio/mp4")
     headers = authenticated_headers(api_client)
@@ -34,8 +35,9 @@ def test_playback_requires_a_verified_object_and_non_deleting_state(
     api_client: TestClient,
     database_session: Session,
     fake_storage: FakeObjectStorage,
+    test_user: User,
 ) -> None:
-    missing = history_recording(database_session)
+    missing = history_recording(database_session, user=test_user)
     authenticated_headers(api_client)
     assert api_client.get(f"/api/recordings/{missing.id}/playback").status_code == 409
 
@@ -45,9 +47,12 @@ def test_playback_requires_a_verified_object_and_non_deleting_state(
 
 
 def test_playback_requires_authentication(
-    api_client: TestClient, database_session: Session, fake_storage: FakeObjectStorage
+    api_client: TestClient,
+    database_session: Session,
+    fake_storage: FakeObjectStorage,
+    test_user: User,
 ) -> None:
-    recording = history_recording(database_session)
+    recording = history_recording(database_session, user=test_user)
     assert recording.playback_object_key is not None
     fake_storage.objects[recording.playback_object_key] = ObjectMetadata(100)
 

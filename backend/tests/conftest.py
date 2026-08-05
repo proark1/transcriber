@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import re
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
@@ -17,7 +17,9 @@ from sqlalchemy.orm import Session, sessionmaker
 from alembic import command
 from tests.fakes import FakeObjectStorage
 from transcriber.api.app import create_app
+from transcriber.auth import AuthenticationService
 from transcriber.config import AppSettings
+from transcriber.models import User
 
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL",
@@ -68,6 +70,7 @@ def database_session(migrated_engine: Engine) -> Iterator[Session]:
             "recordings",
             "login_attempts",
             "auth_sessions",
+            "users",
         ):
             connection.execute(text(f"delete from {table}"))
     with Session(migrated_engine, expire_on_commit=False) as session:
@@ -80,8 +83,6 @@ def app_settings() -> AppSettings:
     return AppSettings(
         app_env="test",
         app_public_origin="https://testserver",
-        app_username="owner",
-        app_pin_hash=PasswordHasher(time_cost=1, memory_cost=8_192).hash("123456"),
         app_session_secret=SecretStr("test-session-secret-that-is-at-least-32-bytes"),
         app_secure_cookies=True,
         database_url=TEST_DATABASE_URL,
@@ -90,6 +91,30 @@ def app_settings() -> AppSettings:
         bucket_access_key_id="access",
         bucket_secret_access_key=SecretStr("secret"),
     )
+
+
+@pytest.fixture(scope="session")
+def test_password_hasher() -> PasswordHasher:
+    return PasswordHasher(time_cost=1, memory_cost=8_192)
+
+
+@pytest.fixture
+def user_factory(
+    database_session: Session,
+    test_password_hasher: PasswordHasher,
+) -> Callable[..., User]:
+    def create_user(*, username: str, pin: str = "123456") -> User:
+        user = User(username=username, pin_hash=test_password_hasher.hash(pin))
+        database_session.add(user)
+        database_session.flush()
+        return user
+
+    return create_user
+
+
+@pytest.fixture
+def test_user(user_factory: Callable[..., User]) -> User:
+    return user_factory(username="assad")
 
 
 @pytest.fixture
@@ -108,8 +133,12 @@ def api_client(
     app_session_factory: sessionmaker[Session],
     database_session: Session,
     fake_storage: FakeObjectStorage,
+    test_password_hasher: PasswordHasher,
 ) -> Iterator[TestClient]:
     del database_session
     app = create_app(app_settings, app_session_factory, fake_storage)
+    app.state.auth_service = AuthenticationService(
+        app_settings, password_hasher=test_password_hasher
+    )
     with TestClient(app, base_url="https://testserver") as client:
         yield client

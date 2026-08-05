@@ -26,7 +26,11 @@ router = APIRouter(prefix="/api/recordings", tags=["recordings"])
 @router.get("", response_model=list[RecordingResponse])
 def list_recordings(auth: Authenticated) -> list[RecordingResponse]:
     recordings = list(
-        auth.database.scalars(select(Recording).order_by(Recording.created_at.desc()))
+        auth.database.scalars(
+            select(Recording)
+            .where(Recording.user_id == auth.user.id)
+            .order_by(Recording.created_at.desc())
+        )
     )
     return [_recording_response(recording) for recording in recordings]
 
@@ -78,10 +82,11 @@ def download_transcript(recording_id: UUID, auth: Authenticated) -> Response:
 def retry_recording(
     recording_id: UUID, auth: MutationAuthenticated, settings: Settings
 ) -> RecordingResponse:
+    _recording(auth, recording_id)
     try:
         recording = WorkerRepository(
             auth.database, lease_seconds=settings.worker_lease_seconds
-        ).retry_failed(recording_id)
+        ).retry_failed(recording_id, user_id=auth.user.id)
     except RetryConflict as error:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT) from error
     return _recording_response(recording)
@@ -95,7 +100,7 @@ def delete_recording(
 ) -> Response:
     service = DeletionService(request.app.state.session_factory, request.app.state.storage)
     try:
-        service.begin(recording_id)
+        service.begin(recording_id, user_id=auth.user.id)
     except RecordingNotFound as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND) from error
     except DeletionConflict as error:
@@ -111,7 +116,12 @@ def delete_recording(
 
 
 def _recording(auth: Authenticated, recording_id: UUID) -> Recording:
-    recording = auth.database.get(Recording, recording_id)
+    recording = auth.database.scalar(
+        select(Recording).where(
+            Recording.id == recording_id,
+            Recording.user_id == auth.user.id,
+        )
+    )
     if recording is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     return recording

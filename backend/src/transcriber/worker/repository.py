@@ -321,11 +321,11 @@ class WorkerRepository:
         recording.safe_error_code = safe_code
         _clear_recording_lease(recording)
 
-    def retry_failed(self, recording_id: UUID) -> Recording:
+    def retry_failed(self, recording_id: UUID, *, user_id: UUID) -> Recording:
         recording = self._database.scalar(
             select(Recording)
             .options(selectinload(Recording.chunks))
-            .where(Recording.id == recording_id)
+            .where(Recording.id == recording_id, Recording.user_id == user_id)
             .with_for_update()
         )
         if recording is None or recording.status is not RecordingStatus.FAILED:
@@ -334,6 +334,7 @@ class WorkerRepository:
             select(
                 exists().where(
                     Recording.id != recording_id,
+                    Recording.user_id == user_id,
                     Recording.status.in_(ACTIVE_RECORDING_STATUSES),
                 )
             )

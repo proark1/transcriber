@@ -6,9 +6,6 @@ from pathlib import Path
 from typing import Literal, Self
 from urllib.parse import urlparse
 
-from argon2 import extract_parameters
-from argon2.exceptions import InvalidHashError
-from argon2.low_level import Type
 from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -51,8 +48,6 @@ class AppSettings(BaseSettings):
 
     app_env: Literal["development", "test", "production"] = "production"
     app_public_origin: str
-    app_username: str
-    app_pin_hash: str
     app_session_secret: SecretStr
     app_secure_cookies: bool = True
     app_log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
@@ -94,8 +89,6 @@ class AppSettings(BaseSettings):
 
     @field_validator(
         "app_public_origin",
-        "app_username",
-        "app_pin_hash",
         "database_url",
         "bucket_endpoint",
         "bucket_name",
@@ -134,14 +127,6 @@ class AppSettings(BaseSettings):
 
     @model_validator(mode="after")
     def enforce_product_and_security_contract(self) -> Self:
-        try:
-            parameters = extract_parameters(self.app_pin_hash)
-        except InvalidHashError as error:
-            raise ValueError("APP_PIN_HASH must be a valid Argon2 hash") from error
-        if parameters.type is not Type.ID:
-            raise ValueError("APP_PIN_HASH must use Argon2id")
-        if len(self.app_username) > 128:
-            raise ValueError("APP_USERNAME must contain at most 128 characters")
         if len(self.app_session_secret.get_secret_value()) < 32:
             raise ValueError("APP_SESSION_SECRET must contain at least 32 characters")
         if self.max_recording_bytes != MAX_RECORDING_BYTES:

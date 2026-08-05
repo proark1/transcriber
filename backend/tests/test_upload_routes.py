@@ -13,8 +13,10 @@ from transcriber.models import Recording, RecordingStatus, UploadSession, Upload
 from transcriber.storage import ObjectMetadata
 
 
-def authenticated_headers(client: TestClient) -> dict[str, str]:
-    response = client.post("/api/auth/login", json={"username": "owner", "pin": "123456"})
+def authenticated_headers(
+    client: TestClient, *, username: str = "assad", pin: str = "123456"
+) -> dict[str, str]:
+    response = client.post("/api/auth/login", json={"username": username, "pin": pin})
     assert response.status_code == 200
     return {
         "Origin": "https://testserver",
@@ -293,3 +295,52 @@ def test_upload_routes_require_authentication_and_csrf(api_client: TestClient) -
 
     assert no_csrf.status_code == 403
     assert foreign_origin.status_code == 403
+
+
+def test_two_users_upload_independently_and_cannot_cross_upload_boundaries(
+    api_client: TestClient,
+    fake_storage: FakeObjectStorage,
+) -> None:
+    request_id = uuid4()
+    first_headers = authenticated_headers(api_client, username="first-user")
+    first = create_upload(api_client, first_headers, upload_payload(request_id=request_id))
+    first_upload_id = first["uploadSessionId"]
+    first_provider_id = fake_storage.last_upload_id
+
+    second_headers = authenticated_headers(api_client, username="second-user")
+    second = create_upload(api_client, second_headers)
+    assert second["uploadSessionId"] != first_upload_id
+
+    presign_count = len(fake_storage.presign_expirations)
+    assert api_client.get(f"/api/uploads/{first_upload_id}").status_code == 404
+    assert (
+        api_client.post(
+            f"/api/uploads/{first_upload_id}/parts/authorize",
+            json={"partNumbers": [1]},
+            headers=second_headers,
+        ).status_code
+        == 404
+    )
+    assert (
+        api_client.post(f"/api/uploads/{first_upload_id}/complete", headers=second_headers).status_code
+        == 404
+    )
+    assert (
+        api_client.post(f"/api/uploads/{first_upload_id}/abort", headers=second_headers).status_code
+        == 404
+    )
+    assert len(fake_storage.presign_expirations) == presign_count
+    assert first_provider_id not in fake_storage.aborted_uploads
+
+    assert (
+        api_client.post(
+            f"/api/uploads/{second['uploadSessionId']}/abort", headers=second_headers
+        ).status_code
+        == 204
+    )
+    collision = api_client.post(
+        "/api/uploads",
+        json=upload_payload(request_id=request_id),
+        headers=second_headers,
+    )
+    assert collision.status_code == 409

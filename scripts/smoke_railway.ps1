@@ -16,6 +16,13 @@ if (-not $BaseUrl -or -not $Username -or -not $Pin) {
     throw "Set TRANSCRIBER_SMOKE_URL, TRANSCRIBER_SMOKE_USERNAME, and TRANSCRIBER_SMOKE_PIN."
 }
 $BaseUrl = $BaseUrl.TrimEnd("/")
+$Username = $Username.Trim().ToLowerInvariant()
+if ($Username -notmatch '^railway-smoke-[a-z0-9]{8,16}$') {
+    throw "Use a generated railway-smoke account so it can be removed safely."
+}
+if ($Pin -notmatch '^\d{6,12}$') {
+    throw "The smoke PIN must contain 6-12 digits."
+}
 $baseUri = [Uri]$BaseUrl
 if ($baseUri.Scheme -ne "https" -and $baseUri.Host -notin @("localhost", "127.0.0.1")) {
     throw "The smoke URL must use HTTPS."
@@ -26,6 +33,36 @@ $csrfHeaders = $null
 $httpClient = New-Object System.Net.Http.HttpClient
 $upload = $null
 $queued = $null
+$recordingDeleted = $false
+
+function Assert-LoginRejected {
+    param(
+        [Parameter(Mandatory)] [string]$RejectedUsername,
+        [Parameter(Mandatory)] [string]$RejectedPin,
+        [Parameter(Mandatory)] [int]$ExpectedStatus,
+        [Parameter(Mandatory)] [string]$ExpectedCode,
+        [Parameter(Mandatory)] [string]$ExpectedMessage
+    )
+    try {
+        Invoke-RestMethod `
+            -Uri "$BaseUrl/api/auth/login" `
+            -Method Post `
+            -Body (@{ username = $RejectedUsername; pin = $RejectedPin } | ConvertTo-Json -Compress) `
+            -ContentType "application/json" | Out-Null
+    } catch {
+        $status = [int]$_.Exception.Response.StatusCode
+        $problem = $_.ErrorDetails.Message | ConvertFrom-Json
+        if (
+            $status -ne $ExpectedStatus -or
+            $problem.error.code -cne $ExpectedCode -or
+            $problem.error.message -cne $ExpectedMessage
+        ) {
+            throw "A login rejection did not match the expected safe response."
+        }
+        return
+    }
+    throw "A login that should have been rejected unexpectedly succeeded."
+}
 
 function Invoke-AppJson {
     param(
@@ -51,14 +88,49 @@ try {
     $ready = Invoke-RestMethod -Uri "$BaseUrl/readyz" -Method Get -SessionVariable webSession
     if ($ready.status -ne "ready") { throw "Readiness check did not pass." }
 
+    Assert-LoginRejected `
+        -RejectedUsername "OwNeR" `
+        -RejectedPin $Pin `
+        -ExpectedStatus 422 `
+        -ExpectedCode "username_unavailable" `
+        -ExpectedMessage "That username is unavailable."
+
     $login = Invoke-AppJson -Path "/api/auth/login" -Method Post -Body @{
-        username = $Username
+        username = $Username.ToUpperInvariant()
         pin = $Pin
+    }
+    if (-not $login.accountCreated -or $login.username -cne $Username) {
+        throw "The smoke account was not created with its normalized lowercase username."
     }
     $csrfHeaders = @{
         Origin = $origin
         "X-CSRF-Token" = $login.csrfToken
     }
+
+    $wrongPin = if ($Pin -ceq "000000") { "111111" } else { "000000" }
+    Assert-LoginRejected `
+        -RejectedUsername $Username.ToUpperInvariant() `
+        -RejectedPin $wrongPin `
+        -ExpectedStatus 401 `
+        -ExpectedCode "incorrect_pin" `
+        -ExpectedMessage "That PIN is incorrect."
+
+    $secondSession = $null
+    $secondLogin = Invoke-RestMethod `
+        -Uri "$BaseUrl/api/auth/login" `
+        -Method Post `
+        -SessionVariable secondSession `
+        -Body (@{ username = $Username.ToUpperInvariant(); pin = $Pin } | ConvertTo-Json -Compress) `
+        -ContentType "application/json"
+    if ($secondLogin.accountCreated -or $secondLogin.username -cne $Username) {
+        throw "Case-insensitive login did not reopen the existing account."
+    }
+    Invoke-RestMethod `
+        -Uri "$BaseUrl/api/auth/logout" `
+        -Method Post `
+        -WebSession $secondSession `
+        -Headers @{ Origin = $origin; "X-CSRF-Token" = $secondLogin.csrfToken } | Out-Null
+
     $recordingResponse = Invoke-AppJson -Path "/api/recordings"
     if ($null -eq $recordingResponse) {
         $recordings = @()
@@ -192,7 +264,27 @@ try {
         $playbackRequest.Dispose()
         if ($null -ne $playbackResponse) { $playbackResponse.Dispose() }
     }
-    Write-Output "Full Railway smoke transcription passed without printing private transcript or signed URL data."
+    Invoke-AppJson `
+        -Path "/api/recordings/$($queued.recordingId)" `
+        -Method Delete `
+        -Headers $csrfHeaders | Out-Null
+    $deletionDeadline = [DateTimeOffset]::UtcNow.AddMinutes(10)
+    do {
+        try {
+            Invoke-AppJson -Path "/api/recordings/$($queued.recordingId)" | Out-Null
+        } catch {
+            if ([int]$_.Exception.Response.StatusCode -eq 404) {
+                $recordingDeleted = $true
+                break
+            }
+            throw
+        }
+        if ([DateTimeOffset]::UtcNow -ge $deletionDeadline) {
+            throw "Timed out waiting for smoke recording deletion."
+        }
+        Start-Sleep -Seconds 5
+    } while ($true)
+    Write-Output "Full Railway smoke transcription and cleanup passed without printing private transcript or signed URL data."
 } finally {
     if ($null -ne $upload -and $null -eq $queued -and $null -ne $csrfHeaders) {
         try {
@@ -202,6 +294,16 @@ try {
                 -Headers $csrfHeaders | Out-Null
         } catch {
             Write-Warning "The incomplete smoke upload could not be aborted automatically."
+        }
+    }
+    if ($null -ne $queued -and -not $recordingDeleted -and $null -ne $csrfHeaders) {
+        try {
+            Invoke-AppJson `
+                -Path "/api/recordings/$($queued.recordingId)" `
+                -Method Delete `
+                -Headers $csrfHeaders | Out-Null
+        } catch {
+            Write-Warning "The smoke recording could not be queued for deletion automatically."
         }
     }
     if ($null -ne $csrfHeaders) {

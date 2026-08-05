@@ -29,16 +29,19 @@ export interface MultipartUploadState {
 
 interface UseMultipartUploadOptions {
   api: Pick<ApiClient, "request">;
+  username: string;
   onQueued: (recordingId: string) => void | Promise<void>;
 }
 
-export function useMultipartUpload({ api, onQueued }: UseMultipartUploadOptions) {
-  const initialPending = loadPendingUpload();
-  const [state, setState] = useState<MultipartUploadState>({
-    phase: initialPending ? "waiting-for-file" : "idle",
-    progress: 0,
-    pending: initialPending,
-    error: null,
+export function useMultipartUpload({ api, username, onQueued }: UseMultipartUploadOptions) {
+  const [state, setState] = useState<MultipartUploadState>(() => {
+    const initialPending = loadPendingUpload(username);
+    return {
+      phase: initialPending ? "waiting-for-file" : "idle",
+      progress: 0,
+      pending: initialPending,
+      error: null,
+    };
   });
   const abortController = useRef<AbortController | null>(null);
 
@@ -63,7 +66,7 @@ export function useMultipartUpload({ api, onQueued }: UseMultipartUploadOptions)
           sizeBytes: file.size,
           language,
         } satisfies PendingUpload);
-      savePendingUpload(pending);
+      savePendingUpload(username, pending);
       abortController.current = new AbortController();
       setState({ phase: "uploading", progress: 0, pending, error: null });
       try {
@@ -87,7 +90,7 @@ export function useMultipartUpload({ api, onQueued }: UseMultipartUploadOptions)
           });
           pending.uploadSessionId = uploadState.uploadSessionId;
           pending.recordingId = uploadState.recordingId;
-          savePendingUpload(pending);
+          savePendingUpload(username, pending);
         }
 
         let confirmed = uploadState.confirmedParts;
@@ -141,7 +144,7 @@ export function useMultipartUpload({ api, onQueued }: UseMultipartUploadOptions)
           `/api/uploads/${uploadState.uploadSessionId}/complete`,
           { method: "POST", signal: abortController.current.signal },
         );
-        clearPendingUpload();
+        clearPendingUpload(username);
         setState({ phase: "idle", progress: 1, pending: null, error: null });
         await onQueued(completed.recordingId);
       } catch (error: unknown) {
@@ -155,7 +158,7 @@ export function useMultipartUpload({ api, onQueued }: UseMultipartUploadOptions)
         abortController.current = null;
       }
     },
-    [api, onQueued],
+    [api, onQueued, username],
   );
 
   const start = useCallback(
@@ -180,9 +183,9 @@ export function useMultipartUpload({ api, onQueued }: UseMultipartUploadOptions)
         // The server remains the source of truth and can reconcile the session later.
       }
     }
-    clearPendingUpload();
+    clearPendingUpload(username);
     setState({ phase: "idle", progress: 0, pending: null, error: null });
-  }, [api, state.pending]);
+  }, [api, state.pending, username]);
 
   return { state, start, resume, cancel };
 }

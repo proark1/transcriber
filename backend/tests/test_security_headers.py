@@ -22,7 +22,7 @@ def test_security_headers_and_request_ids_are_present(api_client: TestClient) ->
 def test_validation_errors_do_not_echo_submitted_values(api_client: TestClient) -> None:
     response = api_client.post(
         "/api/auth/login",
-        json={"username": "owner", "pin": "123456", "private": "do-not-echo"},
+        json={"username": "assad", "pin": "123456", "private": "do-not-echo"},
     )
 
     assert response.status_code == 422

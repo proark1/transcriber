@@ -25,6 +25,7 @@ export interface SessionResponse {
   username: string;
   csrfToken: string;
   expiresAt: string;
+  accountCreated: boolean;
 }
 
 export interface RecordingResponse {

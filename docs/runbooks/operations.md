@@ -17,8 +17,9 @@ disposable; PostgreSQL and the Bucket are the durable sources of truth.
 
 Start the worker at 8 vCPU and 16 GB memory for CPU `large-v3` transcription, then measure real
 recordings before reducing resources. A two-to-three-hour recording can take a long time on CPU.
-More CPU improves speed, not recognition quality. Keep only one worker replica because the product
-allows one active recording and the database lease is designed for a single durable job stream.
+More CPU improves speed, not recognition quality. Each account can have one active recording;
+different accounts can queue independently. Keep only one worker replica because jobs are processed
+sequentially and the database lease is designed for one durable worker stream.
 
 The first worker start downloads the model and warms CTranslate2. Keep `/data/model-cache` mounted
 to avoid repeating this cost. Alert on volume capacity above 80%, but do not back up the model cache;
@@ -49,8 +50,8 @@ must remain unchanged.
 
 ### A recording reports Needs attention
 
-Open it and use **Retry unfinished parts**. Completed chunks are preserved. If another recording is
-active, finish or delete that recording first. Repeated `media_unreadable` or
+Open it and use **Retry unfinished parts**. Completed chunks are preserved. If another recording in
+the same account is active, finish or delete that recording first. Repeated `media_unreadable` or
 `duration_limit_exceeded` errors require a different input, not infrastructure retry.
 
 ### Model download fails
@@ -60,9 +61,18 @@ underlying problem is fixed. Do not delete the model volume during an active tra
 
 ### Upload pauses
 
-The user chooses the same local file again. The browser retains only the upload ID and file
-signature; the API reconciles Bucket-confirmed parts. Never instruct the user to clear browser
-storage unless the upload is deliberately abandoned.
+The user chooses the same local file again. The browser retains only the account-scoped upload ID
+and file signature; the API reconciles Bucket-confirmed parts. Another account on the same browser
+cannot see or resume that marker. Never instruct the user to clear browser storage unless the upload
+is deliberately abandoned.
+
+### Account access
+
+Entering a new valid username and PIN creates the account and signs in immediately. Usernames are
+case-insensitive and displayed in normalized lowercase; `owner` is permanently unavailable. An
+existing username with a wrong PIN is rejected without creating another account. Version 1 has no
+PIN recovery or PIN change, so users must retain their PIN. Recording history and every recording,
+upload, transcript, and playback endpoint are private to the signed-in account.
 
 ### Deletion remains in progress
 

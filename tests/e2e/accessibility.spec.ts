@@ -13,7 +13,7 @@ test("critical login and upload screens have no serious accessibility violations
   expect(loginResults.violations.filter((item) => ["serious", "critical"].includes(item.impact ?? ""))).toEqual([]);
 
   await expect(page.getByLabel("Username")).toBeFocused();
-  await page.getByLabel("Username").fill("owner");
+  await page.getByLabel("Username").fill("assad");
   await page.keyboard.press("Tab");
   await expect(page.getByLabel("PIN")).toBeFocused();
   await page.getByLabel("PIN").fill("123456");
@@ -28,7 +28,7 @@ test("critical login and upload screens have no serious accessibility violations
   ).toEqual([]);
 });
 
-test("mobile workspace stays within the iPhone viewport", async ({ page }) => {
+test("mobile workspace stays within a narrow phone viewport", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await installMockApi(page, { authenticated: true });
   await page.goto("/");

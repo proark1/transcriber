@@ -54,6 +54,7 @@ describe("useMultipartUpload", () => {
     const { result } = renderHook(() =>
       useMultipartUpload({
         api: { request } as unknown as Pick<ApiClient, "request">,
+        username: "assad",
         onQueued,
       }),
     );
@@ -73,6 +74,6 @@ describe("useMultipartUpload", () => {
       expect.objectContaining({ method: "POST" }),
     );
     expect(result.current.state.progress).toBe(1);
-    expect(localStorage.getItem("transcriber.pending-upload.v1")).toBeNull();
+    expect(localStorage.getItem("transcriber.pending-upload.v2.assad")).toBeNull();
   });
 });

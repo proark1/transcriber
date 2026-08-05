@@ -6,7 +6,7 @@ test("requires confirmation and keeps a recording visible during safe deletion",
   const recording = completedRecording();
   const state = await installMockApi(page, { authenticated: true, recordings: [recording] });
   await page.goto("/");
-  await page.getByRole("button", { name: /Interview from iPhone\.m4a.*Ready/ }).click();
+  await page.getByRole("button", { name: /Studio Interview\.m4a.*Ready/ }).click();
 
   await page.getByRole("button", { name: "Delete recording" }).click();
   await expect(page.getByRole("dialog", { name: "Delete this recording?" })).toContainText(
@@ -19,7 +19,7 @@ test("requires confirmation and keeps a recording visible during safe deletion",
   await page.getByRole("button", { name: "Delete permanently" }).click();
   expect(state.deleteCalls).toBe(1);
   await expect(page.getByRole("heading", { name: "Deleting safely" })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Interview from iPhone\.m4a.*Deleting/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Studio Interview\.m4a.*Deleting/ })).toBeVisible();
 
   state.recordings = [];
   await page.reload();

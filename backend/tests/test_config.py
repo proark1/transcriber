@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-from argon2 import PasswordHasher
 from pydantic import ValidationError
 
 from transcriber.config import (
@@ -16,8 +15,6 @@ def valid_settings(**overrides: object) -> AppSettings:
     values: dict[str, object] = {
         "app_env": "test",
         "app_public_origin": "http://localhost:5173",
-        "app_username": "owner",
-        "app_pin_hash": PasswordHasher().hash("123456"),
         "app_session_secret": "s" * 32,
         "app_secure_cookies": False,
         "database_url": "postgresql+psycopg://localhost/transcriber",
@@ -84,9 +81,11 @@ def test_production_requires_https_and_secure_cookies() -> None:
         )
 
 
-def test_settings_reject_an_invalid_pin_hash() -> None:
-    with pytest.raises(ValidationError):
-        valid_settings(app_pin_hash="not-a-hash")
+def test_fixed_owner_credentials_are_not_application_settings() -> None:
+    settings = valid_settings(app_username="owner", app_pin_hash="not-a-hash")
+
+    assert not hasattr(settings, "app_username")
+    assert not hasattr(settings, "app_pin_hash")
 
 
 def test_settings_reject_an_empty_bucket_secret() -> None:

@@ -1,6 +1,6 @@
 import type { Language } from "../api/contracts.ts";
 
-const STORAGE_KEY = "transcriber.pending-upload.v1";
+const STORAGE_KEY_PREFIX = "transcriber.pending-upload.v2";
 
 export interface PendingUpload {
   clientRequestId: string;
@@ -16,8 +16,13 @@ export function signatureForFile(file: File): string {
   return `${file.name}:${file.size}:${file.lastModified}`;
 }
 
-export function loadPendingUpload(): PendingUpload | null {
-  const value = localStorage.getItem(STORAGE_KEY);
+function storageKey(username: string): string {
+  return `${STORAGE_KEY_PREFIX}.${username}`;
+}
+
+export function loadPendingUpload(username: string): PendingUpload | null {
+  const key = storageKey(username);
+  const value = localStorage.getItem(key);
   if (!value) return null;
   try {
     const parsed = JSON.parse(value) as Partial<PendingUpload>;
@@ -40,15 +45,15 @@ export function loadPendingUpload(): PendingUpload | null {
       language: parsed.language as Language,
     };
   } catch {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(key);
     return null;
   }
 }
 
-export function savePendingUpload(upload: PendingUpload): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(upload));
+export function savePendingUpload(username: string, upload: PendingUpload): void {
+  localStorage.setItem(storageKey(username), JSON.stringify(upload));
 }
 
-export function clearPendingUpload(): void {
-  localStorage.removeItem(STORAGE_KEY);
+export function clearPendingUpload(username: string): void {
+  localStorage.removeItem(storageKey(username));
 }

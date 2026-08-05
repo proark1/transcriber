@@ -7,6 +7,7 @@
       "/backend/**",
       "/frontend/**",
       "/scripts/configure_bucket_cors.py",
+      "/scripts/cleanup_smoke_user.py",
       "/Dockerfile",
       "/package.json",
       "/pnpm-lock.yaml"

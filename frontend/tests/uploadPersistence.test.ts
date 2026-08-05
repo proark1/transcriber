@@ -11,7 +11,7 @@ describe("pending upload persistence", () => {
       type: "audio/mp4",
       lastModified: 42,
     });
-    savePendingUpload({
+    savePendingUpload("assad", {
       clientRequestId: "request-1",
       uploadSessionId: "upload-1",
       recordingId: "recording-1",
@@ -21,9 +21,9 @@ describe("pending upload persistence", () => {
       language: "tr",
     });
 
-    const raw = localStorage.getItem("transcriber.pending-upload.v1") ?? "";
+    const raw = localStorage.getItem("transcriber.pending-upload.v2.assad") ?? "";
     expect(raw).not.toMatch(/https?:|audioData|transcript|credential|csrf|pin/i);
-    expect(loadPendingUpload()).toEqual(
+    expect(loadPendingUpload("assad")).toEqual(
       expect.objectContaining({
         uploadSessionId: "upload-1",
         filename: "voice.m4a",
@@ -31,8 +31,23 @@ describe("pending upload persistence", () => {
       }),
     );
 
-    clearPendingUpload();
-    expect(loadPendingUpload()).toBeNull();
+    clearPendingUpload("assad");
+    expect(loadPendingUpload("assad")).toBeNull();
+  });
+
+  it("keeps pending uploads separate for each account", () => {
+    savePendingUpload("assad", {
+      clientRequestId: "request-1",
+      uploadSessionId: "upload-1",
+      recordingId: "recording-1",
+      fileSignature: "one:1:1",
+      filename: "one.m4a",
+      sizeBytes: 1,
+      language: "en",
+    });
+
+    expect(loadPendingUpload("other-user")).toBeNull();
+    expect(loadPendingUpload("assad")?.filename).toBe("one.m4a");
   });
 
   it("uses name, size, and last-modified time to identify the same file", () => {

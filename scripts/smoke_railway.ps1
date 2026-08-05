@@ -247,6 +247,9 @@ try {
     $downloaded = [string](Invoke-RestMethod `
         -Uri "$BaseUrl/api/recordings/$($queued.recordingId)/transcript.txt" `
         -WebSession $webSession)
+    if ([string]::IsNullOrWhiteSpace($displayed)) {
+        throw "Transcription returned no readable text."
+    }
     if ($displayed -cne $downloaded) { throw "Displayed and downloaded transcript text differ." }
     $playback = Invoke-AppJson -Path "/api/recordings/$($queued.recordingId)/playback"
     $playbackResponse = $null

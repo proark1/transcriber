@@ -113,7 +113,7 @@ try {
         -RejectedPin $wrongPin `
         -ExpectedStatus 401 `
         -ExpectedCode "incorrect_pin" `
-        -ExpectedMessage "That PIN is incorrect."
+        -ExpectedMessage "That PIN is incorrect for this username."
 
     $secondSession = $null
     $secondLogin = Invoke-RestMethod `
